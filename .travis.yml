@@ -13,4 +13,7 @@ before_install:
 - cd ${CF_PROJECT_DIR}
 - go get ./...
 
-script: make all test
+script:
+    - go test -covermode=count -coverprofile=coverage.out ./...
+    - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci
+    - make all test
