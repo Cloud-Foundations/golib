@@ -1,0 +1,16 @@
+language: go
+
+go:
+  - 1.x
+
+before_install:
+- REPO_NAME=$(basename $PWD)
+- GITHUB_PATH=$(dirname $(dirname $PWD))
+- CF_PROJECT_DIR=${GITHUB_PATH}/Cloud-Foundations/${REPO_NAME}
+- mkdir -p ${CF_PROJECT_DIR}
+- rsync -az ${TRAVIS_BUILD_DIR}/ ${CF_PROJECT_DIR}/
+- export TRAVIS_BUILD_DIR=${CF_PROJECT_DIR}
+- cd ${CF_PROJECT_DIR}
+- go get ./...
+
+script: make all test
