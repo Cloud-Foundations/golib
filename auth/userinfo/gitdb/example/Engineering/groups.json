@@ -1,0 +1,24 @@
+[
+    {
+	"Name": "eng-all",
+	"GroupMembers": [
+	    "eng-backend",
+	    "eng-frontend",
+	    "production-team"
+	]
+    },
+    {
+	"Name": "eng-backend",
+	"UserMembers": [
+	    "alice",
+	    "bob"
+	]
+    },
+    {
+	"Name": "eng-frontend",
+	"UserMembers": [
+	    "carol",
+	    "dave"
+	]
+    }
+]

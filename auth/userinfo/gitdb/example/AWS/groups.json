@@ -1,0 +1,26 @@
+[
+    {
+	"Name": "AWS-IAM-Dev-Admin",
+	"GroupMembers": [
+	    "production-team"
+	]
+    },
+    {
+	"Name": "AWS-IAM-Dev-Engineer",
+	"GroupMembers": [
+	    "eng-all"
+	]
+    },
+    {
+	"Name": "AWS-IAM-MasterPayer-Admin",
+	"GroupMembers": [
+	    "production-team"
+	]
+    },
+    {
+	"Name": "AWS-IAM-MasterPayer-Billing",
+	"GroupMembers": [
+	    "finance-all"
+	]
+    }
+]
