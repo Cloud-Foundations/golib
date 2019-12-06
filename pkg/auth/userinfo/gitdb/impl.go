@@ -102,7 +102,7 @@ func newDB(repositoryURL, branch, localRepositoryDir string,
 		return nil, errors.New("non-master branch not supported")
 	}
 	directoryChannel, err := repowatch.Watch(repositoryURL,
-		localRepositoryDir, checkInterval, "cloud-gate/gitdb",
+		localRepositoryDir, checkInterval, "userinfo/gitdb",
 		logger)
 	if err != nil {
 		return nil, err
