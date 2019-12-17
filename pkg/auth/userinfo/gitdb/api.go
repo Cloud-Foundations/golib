@@ -25,6 +25,10 @@ func (uinfo *UserInfo) GetUserGroups(username string, groupPrefix *string) (
 	return uinfo.getUserGroups(username, groupPrefix)
 }
 
+func (uinfo *UserInfo) GetUsersInGroups() ([]string, error) {
+	return uinfo.getUsersInGroups()
+}
+
 func (uinfo *UserInfo) TestUserInGroup(username, groupname string) bool {
 	return uinfo.testUserInGroup(username, groupname)
 }
