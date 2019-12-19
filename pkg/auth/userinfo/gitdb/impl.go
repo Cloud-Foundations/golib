@@ -14,6 +14,10 @@ import (
 	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
 )
 
+var (
+	repoRE = regexp.MustCompile(".*@(.*)[.]git$")
+)
+
 type groupType struct {
 	Email        []string `json:",omitempty"`
 	GroupMembers []string `json:",omitempty"`
@@ -101,13 +105,22 @@ func newDB(repositoryURL, branch, localRepositoryDir string,
 	if branch != "" && branch != "master" {
 		return nil, errors.New("non-master branch not supported")
 	}
+	metricsSubdir := localRepositoryDir
+	if repositoryURL != "" {
+		metricsSubdir = repoRE.ReplaceAllString(repositoryURL, "$1")
+	}
 	directoryChannel, err := repowatch.Watch(repositoryURL,
-		localRepositoryDir, checkInterval, "userinfo/gitdb",
+		localRepositoryDir, checkInterval,
+		filepath.Join("userinfo/gitdb", metricsSubdir),
 		logger)
 	if err != nil {
 		return nil, err
 	}
 	userInfo := &UserInfo{logger: logger}
+	// Consume initial notification to ensure DB is populated before returning.
+	if err := userInfo.loadDatabase(<-directoryChannel); err != nil {
+		userInfo.logger.Println(err)
+	}
 	go userInfo.handleNotifications(directoryChannel)
 	return userInfo, nil
 }
@@ -193,6 +206,16 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) (
 		}
 	}
 	return matchedGroups, nil
+}
+
+func (uinfo *UserInfo) getUsersInGroups() ([]string, error) {
+	uinfo.rwMutex.RLock()
+	defer uinfo.rwMutex.RUnlock()
+	usernames := make([]string, 0, len(uinfo.groupsPerUser))
+	for username := range uinfo.groupsPerUser {
+		usernames = append(usernames, username)
+	}
+	return usernames, nil
 }
 
 func (uinfo *UserInfo) handleNotifications(directoryChannel <-chan string) {
