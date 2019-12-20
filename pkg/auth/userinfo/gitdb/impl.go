@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
@@ -186,8 +185,7 @@ func (loadState *loadStateType) processGroup(group *groupType,
 	group.users = userList
 }
 
-func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) (
-	[]string, error) {
+func (uinfo *UserInfo) getUserGroups(username string) ([]string, error) {
 	uinfo.rwMutex.RLock()
 	groupsMap := uinfo.groupsPerUser[username]
 	groups := make([]string, 0, len(groupsMap))
@@ -195,17 +193,7 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) (
 		groups = append(groups, group)
 	}
 	uinfo.rwMutex.RUnlock()
-	if groupPrefix == nil {
-		return groups, nil
-	}
-	matchedGroups := make([]string, 0, len(groups))
-	charsToStrip := len(*groupPrefix)
-	for _, group := range groups {
-		if strings.HasPrefix(group, *groupPrefix) {
-			matchedGroups = append(matchedGroups, group[charsToStrip:])
-		}
-	}
-	return matchedGroups, nil
+	return groups, nil
 }
 
 func (uinfo *UserInfo) getUsersInGroups() ([]string, error) {

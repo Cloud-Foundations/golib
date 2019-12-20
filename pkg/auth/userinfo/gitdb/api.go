@@ -20,9 +20,8 @@ func New(repositoryURL, branch, localRepositoryDir string,
 		logger)
 }
 
-func (uinfo *UserInfo) GetUserGroups(username string, groupPrefix *string) (
-	[]string, error) {
-	return uinfo.getUserGroups(username, groupPrefix)
+func (uinfo *UserInfo) GetUserGroups(username string) ([]string, error) {
+	return uinfo.getUserGroups(username)
 }
 
 func (uinfo *UserInfo) GetUsersInGroups() ([]string, error) {

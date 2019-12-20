@@ -51,7 +51,7 @@ func (uinfo *UserInfo) testDB(t *testing.T) {
 		t.Fatal("userA found in unpermitted0 using TestUserInGroup")
 	} else if len(groups) != 2 {
 		t.Fatalf("userA in %d groups, expected 2", len(groups))
-	} else if g, err := uinfo.GetUserGroups("userA", nil); err != nil {
+	} else if g, err := uinfo.GetUserGroups("userA"); err != nil {
 		t.Fatal(err)
 	} else if len(g) != 2 {
 		t.Fatalf("userA in %d groups using GetUserGroups, expected 2",

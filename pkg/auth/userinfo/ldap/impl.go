@@ -3,7 +3,6 @@ package ldap
 import (
 	"crypto/x509"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -41,61 +40,46 @@ func init() {
 	prometheus.MustRegister(userinfoLDAPSuccess)
 }
 
-func newUserInfo(urllist []string, bindUsername string, bindPassword string,
-	userSearchFilter string, userSearchBaseDNs []string, timeoutSecs uint, rootCAs *x509.CertPool, logger log.DebugLogger) (
+func newUserInfo(urlList []string, bindUsername string, bindPassword string,
+	groupSearchFilter string, groupSearchBaseDNs []string,
+	userSearchFilter string, userSearchBaseDNs []string,
+	timeoutSecs uint, rootCAs *x509.CertPool, logger log.DebugLogger) (
 	*UserInfo, error) {
-	var userinfo UserInfo
-	for _, stringURL := range urllist {
+	userinfo := &UserInfo{
+		bindUsername:       bindUsername,
+		bindPassword:       bindPassword,
+		groupSearchFilter:  groupSearchFilter,
+		groupSearchBaseDNs: groupSearchBaseDNs,
+		userSearchFilter:   userSearchFilter,
+		userSearchBaseDNs:  userSearchBaseDNs,
+		timeoutSecs:        timeoutSecs,
+		rootCAs:            rootCAs,
+		logger:             logger,
+	}
+	for _, stringURL := range urlList {
 		url, err := authutil.ParseLDAPURL(stringURL)
 		if err != nil {
 			return nil, err
 		}
-		userinfo.ldapURL = append(userinfo.ldapURL, url)
+		userinfo.ldapURLs = append(userinfo.ldapURLs, url)
 	}
-	userinfo.bindUsername = bindUsername
-	userinfo.bindPassword = bindPassword
-	userinfo.userSearchFilter = userSearchFilter
-	userinfo.userSearchBaseDNs = userSearchBaseDNs
-	userinfo.timeoutSecs = timeoutSecs
-	userinfo.rootCAs = rootCAs
-	userinfo.logger = logger
-	return &userinfo, nil
+	return userinfo, nil
 }
 
-func (uinfo *UserInfo) extractCNFromDNString(input []string, groupPrefix string) (output []string, err error) {
-	reString := fmt.Sprintf("^CN=%s([^,]+),.*", groupPrefix)
-	re, err := regexp.Compile(reString)
-	if err != nil {
-		return nil, err
-	}
-	uinfo.logger.Debugf(1, "input=%v ", input)
-	for _, dn := range input {
-		matches := re.FindStringSubmatch(dn)
-		if len(matches) == 2 {
-			output = append(output, matches[1])
-		} else {
-			uinfo.logger.Debugf(5, "Not matching dn='%s' matches=%v", dn, matches)
-			//output = append(output, dn)
-		}
-	}
-	return output, nil
-
-}
-
-func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]string, error) {
-	attributesOfInterest := []string{"memberOf", "mail"}
+func (uinfo *UserInfo) getUserGroups(username string) ([]string, error) {
 	ldapSuccess := false
-	var userAttributes map[string][]string
+	var groups []string
 	var err error
 	userinfoLDAPAttempt.Inc()
-	for _, ldapUrl := range uinfo.ldapURL {
+	for _, ldapUrl := range uinfo.ldapURLs {
 		targetName := strings.ToLower(ldapUrl.Hostname())
 		startTime := time.Now()
-		userAttributes, err = authutil.GetLDAPUserAttributes(*ldapUrl, uinfo.bindUsername, uinfo.bindPassword,
+		groups, err = authutil.GetLDAPUserGroups(*ldapUrl,
+			uinfo.bindUsername, uinfo.bindPassword,
 			uinfo.timeoutSecs, uinfo.rootCAs,
 			username,
 			uinfo.userSearchBaseDNs, uinfo.userSearchFilter,
-			attributesOfInterest)
+			uinfo.groupSearchBaseDNs, uinfo.groupSearchFilter)
 		if err != nil {
 			continue
 		}
@@ -107,14 +91,6 @@ func (uinfo *UserInfo) getUserGroups(username string, groupPrefix *string) ([]st
 		return nil, fmt.Errorf("Could not contact any configured LDAP endpoint. Last Err: %s", err)
 	}
 	userinfoLDAPSuccess.Inc()
-	groupPrefixString := ""
-	if groupPrefix != nil {
-		groupPrefixString = *groupPrefix
-	}
-	uinfo.logger.Debugf(2, "userAttributes=%+v", userAttributes)
-	groupsOfInterest, err := uinfo.extractCNFromDNString(userAttributes["memberOf"], groupPrefixString)
-	if err != nil {
-		return nil, err
-	}
-	return groupsOfInterest, nil
+	uinfo.logger.Debugf(2, "groups=%+v", groups)
+	return groups, nil
 }
