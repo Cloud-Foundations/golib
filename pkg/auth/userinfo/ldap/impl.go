@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Cloud-Foundations/Dominator/lib/log"
-	"github.com/Cloud-Foundations/keymaster/lib/authutil"
+	"github.com/Cloud-Foundations/golib/pkg/log"
+	"github.com/Cloud-Foundations/golib/pkg/auth/ldaputil"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -57,7 +57,7 @@ func newUserInfo(urlList []string, bindUsername string, bindPassword string,
 		logger:             logger,
 	}
 	for _, stringURL := range urlList {
-		url, err := authutil.ParseLDAPURL(stringURL)
+		url, err := ldaputil.ParseLDAPURL(stringURL)
 		if err != nil {
 			return nil, err
 		}
@@ -74,9 +74,9 @@ func (uinfo *UserInfo) getUserGroups(username string) ([]string, error) {
 	for _, ldapUrl := range uinfo.ldapURLs {
 		targetName := strings.ToLower(ldapUrl.Hostname())
 		startTime := time.Now()
-		groups, err = authutil.GetLDAPUserGroups(*ldapUrl,
+		groups, err = ldaputil.GetLDAPUserGroups(*ldapUrl,
 			uinfo.bindUsername, uinfo.bindPassword,
-			uinfo.timeoutSecs, uinfo.rootCAs,
+			time.Second*time.Duration(uinfo.timeoutSecs), uinfo.rootCAs,
 			username,
 			uinfo.userSearchBaseDNs, uinfo.userSearchFilter,
 			uinfo.groupSearchBaseDNs, uinfo.groupSearchFilter)
