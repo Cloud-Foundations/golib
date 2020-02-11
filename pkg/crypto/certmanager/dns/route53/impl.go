@@ -126,6 +126,6 @@ func (r *Responder) respond(key, value string) error {
 		return err
 	}
 	r.records[key] = value
-	r.logger.Debugf(1, "change: %s completd\n", *output.ChangeInfo.Id)
+	r.logger.Debugf(1, "change: %s completed\n", *output.ChangeInfo.Id)
 	return nil
 }
