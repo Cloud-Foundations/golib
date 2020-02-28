@@ -4,8 +4,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
+
+type Config struct {
+	repowatch.Config `yaml:",inline"`
+}
 
 type UserInfo struct {
 	logger        log.DebugLogger
@@ -16,8 +21,16 @@ type UserInfo struct {
 func New(repositoryURL, branch, localRepositoryDir string,
 	checkInterval time.Duration, logger log.DebugLogger) (
 	*UserInfo, error) {
-	return newDB(repositoryURL, branch, localRepositoryDir, checkInterval,
-		logger)
+	return newDB(Config{Config: repowatch.Config{
+		Branch:                   branch,
+		CheckInterval:            checkInterval,
+		LocalRepositoryDirectory: localRepositoryDir,
+		RepositoryURL:            repositoryURL,
+	}}, logger)
+}
+
+func NewWithConfig(config Config, logger log.DebugLogger) (*UserInfo, error) {
+	return newDB(config, logger)
 }
 
 func (uinfo *UserInfo) GetUserGroups(username string) ([]string, error) {
