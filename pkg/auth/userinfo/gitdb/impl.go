@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"time"
 
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
 	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
@@ -99,19 +98,16 @@ func loadDirectory(dirname string, loadState *loadStateType,
 	return nil
 }
 
-func newDB(repositoryURL, branch, localRepositoryDir string,
-	checkInterval time.Duration, logger log.DebugLogger) (*UserInfo, error) {
-	if branch != "" && branch != "master" {
+func newDB(config Config, logger log.DebugLogger) (*UserInfo, error) {
+	if config.Branch != "" && config.Branch != "master" {
 		return nil, errors.New("non-master branch not supported")
 	}
-	metricsSubdir := localRepositoryDir
-	if repositoryURL != "" {
-		metricsSubdir = repoRE.ReplaceAllString(repositoryURL, "$1")
+	metricsSubdir := config.LocalRepositoryDirectory
+	if config.RepositoryURL != "" {
+		metricsSubdir = repoRE.ReplaceAllString(config.RepositoryURL, "$1")
 	}
-	directoryChannel, err := repowatch.Watch(repositoryURL,
-		localRepositoryDir, checkInterval,
-		filepath.Join("userinfo/gitdb", metricsSubdir),
-		logger)
+	directoryChannel, err := repowatch.WatchWithConfig(config.Config,
+		filepath.Join("userinfo/gitdb", metricsSubdir), logger)
 	if err != nil {
 		return nil, err
 	}
