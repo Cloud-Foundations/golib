@@ -6,9 +6,6 @@ import (
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 )
@@ -59,18 +56,7 @@ func newResponder(hostedZoneId string,
 	if hostedZoneId == "" {
 		return nil, errors.New("no hosted zone ID specified")
 	}
-	creds := credentials.NewCredentials(&ec2rolecreds.EC2RoleProvider{
-		Client:       ec2metadata.New(session.New(&aws.Config{})),
-		ExpiryWindow: time.Minute,
-	})
-	logger.Debugln(0, "getting EC2 role credentials")
-	if value, err := creds.Get(); err != nil {
-		return nil, err
-	} else {
-		logger.Debugf(0, "obtained credentials from: %s\n", value.ProviderName)
-	}
-	awsSession, err := session.NewSession(
-		aws.NewConfig().WithCredentials(creds)) // TODO?: .WithRegion(region))
+	awsSession, err := session.NewSession(&aws.Config{})
 	if err != nil {
 		return nil, err
 	}

@@ -171,6 +171,7 @@ func newManager(names []string, certFilename, keyFilename string, locker Locker,
 		if _, err := rand.Read(randByte); err != nil {
 			return nil, err
 		}
+		// Compute random number between 0.32 and 0.34.
 		renewBefore = 0.32 + 0.02*float64(randByte[0])/256.0
 	}
 	if responder == nil {
@@ -349,7 +350,7 @@ func (cm *CertificateManager) makeAcmeClient(ctx context.Context) error {
 		Key:          key,
 		DirectoryURL: cm.caDirectoryURL,
 		UserAgent: filepath.Base(os.Args[0]) +
-			"using github.com/Cloud-Foundations/golib/pkg/crypto/certmanager",
+			" using github.com/Cloud-Foundations/golib/pkg/crypto/certmanager",
 	}
 	_, err = acmeClient.Register(ctx, &acme.Account{}, acme.AcceptTOS)
 	if err != nil {

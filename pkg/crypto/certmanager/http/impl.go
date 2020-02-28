@@ -16,12 +16,12 @@ func createListener(portNum uint16) (net.Listener, error) {
 }
 
 func createRedirectServer(portNum uint16, logger log.DebugLogger) error {
-	if listener, err := createListener(portNum); err != nil {
+	listener, err := createListener(portNum)
+	if err != nil {
 		return err
-	} else {
-		go runServer(listener, &RedirectHandler{}, logger)
-		return nil
 	}
+	go runServer(listener, &RedirectHandler{}, logger)
+	return nil
 }
 
 func runServer(listener net.Listener, handler http.Handler, logger log.Logger) {
@@ -121,13 +121,13 @@ func (r *Responder) serveHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-	if response := r.getResponse(req.URL.Path); response == "" {
+	response := r.getResponse(req.URL.Path)
+	if response == "" {
 		http.Error(w, "no token for path", http.StatusNotFound)
 		r.logger.Debugf(0, "no token for path: %s\n", req.URL.Path)
 		return
-	} else {
-		w.Write([]byte(response))
 	}
+	w.Write([]byte(response))
 }
 
 func (r *Responder) getResponse(key string) string {
