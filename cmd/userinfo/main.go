@@ -22,6 +22,7 @@ func printUsage() {
 var subcommands = []commands.Command{
 	{"diff-users-groups", "difftool source1 source2", 3, 3,
 		diffUsersGroupsSubcommand},
+	{"list-users", "source", 1, 1, listUsersSubcommand},
 	{"show-user-groups", "source username", 2, 2, showUserGroupsSubcommand},
 }
 
