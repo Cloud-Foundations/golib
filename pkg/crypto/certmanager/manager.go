@@ -131,6 +131,7 @@ func (cert *Certificate) parse() error {
 	if err != nil {
 		return err
 	}
+	cert.tlsCert.Leaf = x509Cert
 	cert.notAfter = x509Cert.NotAfter
 	cert.notBefore = x509Cert.NotBefore
 	return nil
@@ -265,6 +266,9 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 			cm.logger.Println(err)
 		} else if expire := cert.timeUntilRenewal(cm.renewBefore); expire > 0 {
 			cm.rwMutex.Lock()
+			if cm.certificate == nil {
+				go cm.fileWrite(cert)
+			}
 			cm.certificate = cert
 			cm.rwMutex.Unlock()
 			return expire
