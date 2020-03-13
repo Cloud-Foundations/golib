@@ -10,6 +10,7 @@ import (
 )
 
 type AcmeConfig struct {
+	AwsSecretId         string   `yaml:"aws_secret_id"`
 	ChallengeType       string   `yaml:"challenge_type"`
 	DomainNames         []string `yaml:"domain_names"`
 	HttpPort            uint16   `yaml:"http_port"`              // For http-01.
