@@ -392,6 +392,23 @@ func (cm *CertificateManager) renew() error {
 		return err
 	}
 	defer cm.locker.Unlock()
+	if cm.storer != nil { // Check to see if someone else just renewed.
+		if cert, _ := readCert(cm.storer); cert != nil {
+			var previousNotAfter time.Time
+			cm.rwMutex.RLock()
+			if cm.certificate != nil {
+				previousNotAfter = cm.certificate.notAfter
+			}
+			cm.rwMutex.RUnlock()
+			if cert.notAfter.After(previousNotAfter) {
+				cm.rwMutex.Lock()
+				cm.certificate = cert
+				cm.rwMutex.Unlock()
+				go cm.fileWrite(cert)
+				return nil
+			}
+		}
+	}
 	lostChannel := cm.locker.GetLostChannel()
 	cert, err := cm.request(context.Background())
 	if err != nil {
