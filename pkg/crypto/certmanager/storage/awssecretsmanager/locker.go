@@ -53,7 +53,7 @@ func (ls *LockingStorer) breakLock() error {
 			ls.secretId)
 	}
 	ls.logger.Printf("broke lock for SecretId: %s, version: %s\n",
-		ls.secretId, getOutput.VersionId)
+		ls.secretId, *getOutput.VersionId)
 	return nil
 }
 
