@@ -6,6 +6,8 @@ AWS Secrets Manager.
 package awssecretsmanager
 
 import (
+	"sync"
+
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
@@ -13,9 +15,11 @@ import (
 )
 
 type LockingStorer struct {
-	awsService *secretsmanager.SecretsManager
-	logger     log.DebugLogger
-	secretId   string
+	awsService  *secretsmanager.SecretsManager
+	logger      log.DebugLogger
+	secretId    string
+	mutex       sync.Mutex // Protect everything below.
+	lockVersion *string
 }
 
 func New(secretId string, logger log.DebugLogger) (*LockingStorer, error) {

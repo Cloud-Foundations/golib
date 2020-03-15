@@ -125,13 +125,6 @@ func putAwsSecret(awsService *secretsmanager.SecretsManager,
 	return errors.New("no AWSCURRENT version stage associated")
 }
 
-func (ls *LockingStorer) lock() error {
-	ls.logger.Printf(
-		"UNIMPLEMENTED: locked AWS Secrets Manager, SecretId: %s\n",
-		ls.secretId)
-	return nil // HACK
-}
-
 func (ls *LockingStorer) read() (*certmanager.Certificate, error) {
 	keyMap, err := getAwsSecret(ls.awsService, ls.secretId)
 	if err != nil {
@@ -186,13 +179,6 @@ func (ls *LockingStorer) read() (*certmanager.Certificate, error) {
 		CertPemBlock: certPEM.Bytes(),
 		KeyPemBlock:  keyPEM,
 	}, nil
-}
-
-func (ls *LockingStorer) unlock() error {
-	ls.logger.Printf(
-		"UNIMPLEMENTED: unlocked AWS Secrets Manager, SecretId: %s\n",
-		ls.secretId)
-	return nil // HACK
 }
 
 func (ls *LockingStorer) write(cert *certmanager.Certificate) error {
