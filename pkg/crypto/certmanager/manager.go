@@ -264,14 +264,16 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 		// if it needs to be renewed.
 		if cert, err := readCert(cm.storer); err != nil {
 			cm.logger.Println(err)
-		} else if expire := cert.timeUntilRenewal(cm.renewBefore); expire > 0 {
+		} else { // Make use of a certificate, even if expired, then rewnew.
 			cm.rwMutex.Lock()
 			if cm.certificate == nil {
 				go cm.fileWrite(cert)
 			}
 			cm.certificate = cert
 			cm.rwMutex.Unlock()
-			return expire
+			if expire := cert.timeUntilRenewal(cm.renewBefore); expire > 0 {
+				return expire
+			}
 		}
 	}
 	if err := cm.renew(); err != nil {
