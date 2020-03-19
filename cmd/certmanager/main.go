@@ -11,10 +11,13 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/dns/route53"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http"
+	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/storage/awssecretsmanager"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
 var (
+	awsSecretId = flag.String("awsSecretId", "",
+		"Optional AWS Secrets Manager SecretId to read/write certs to")
 	cert = flag.String("cert", "",
 		"file to read/write certificate from/to")
 	challenge   = flag.String("challenge", "http-01", "ACME challenge type")
@@ -110,8 +113,18 @@ func runCertmanager(domains []string, logger log.DebugLogger) error {
 	if *production {
 		directoryURL = *productionDirectoryURL
 	}
-	cm, err := certmanager.New(domains, *cert, *key, nil, *challenge,
-		responder, nil, 0.0, directoryURL, logger)
+	var locker certmanager.Locker
+	var storer certmanager.Storer
+	if *awsSecretId != "" {
+		lockingStorer, err := awssecretsmanager.New(*awsSecretId, logger)
+		if err != nil {
+			return err
+		}
+		locker = lockingStorer
+		storer = lockingStorer
+	}
+	cm, err := certmanager.New(domains, *cert, *key, locker, *challenge,
+		responder, storer, 0.0, directoryURL, logger)
 	if err != nil {
 		return err
 	}

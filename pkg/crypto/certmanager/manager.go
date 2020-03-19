@@ -131,6 +131,7 @@ func (cert *Certificate) parse() error {
 	if err != nil {
 		return err
 	}
+	cert.tlsCert.Leaf = x509Cert
 	cert.notAfter = x509Cert.NotAfter
 	cert.notBefore = x509Cert.NotBefore
 	return nil
@@ -263,11 +264,16 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 		// if it needs to be renewed.
 		if cert, err := readCert(cm.storer); err != nil {
 			cm.logger.Println(err)
-		} else if expire := cert.timeUntilRenewal(cm.renewBefore); expire > 0 {
+		} else { // Make use of a certificate, even if expired, then rewnew.
 			cm.rwMutex.Lock()
+			if cm.certificate == nil {
+				go cm.fileWrite(cert)
+			}
 			cm.certificate = cert
 			cm.rwMutex.Unlock()
-			return expire
+			if expire := cert.timeUntilRenewal(cm.renewBefore); expire > 0 {
+				return expire
+			}
 		}
 	}
 	if err := cm.renew(); err != nil {
@@ -388,6 +394,23 @@ func (cm *CertificateManager) renew() error {
 		return err
 	}
 	defer cm.locker.Unlock()
+	if cm.storer != nil { // Check to see if someone else just renewed.
+		if cert, _ := readCert(cm.storer); cert != nil {
+			var previousNotAfter time.Time
+			cm.rwMutex.RLock()
+			if cm.certificate != nil {
+				previousNotAfter = cm.certificate.notAfter
+			}
+			cm.rwMutex.RUnlock()
+			if cert.notAfter.After(previousNotAfter) {
+				cm.rwMutex.Lock()
+				cm.certificate = cert
+				cm.rwMutex.Unlock()
+				go cm.fileWrite(cert)
+				return nil
+			}
+		}
+	}
 	lostChannel := cm.locker.GetLostChannel()
 	cert, err := cm.request(context.Background())
 	if err != nil {

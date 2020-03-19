@@ -6,6 +6,7 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/dns/route53"
 	cm_http "github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http"
+	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/storage/awssecretsmanager"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
@@ -43,8 +44,18 @@ func newManager(certFilename, keyFilename string, httpRedirectPort uint16,
 			return nil, err
 		}
 	}
+	var locker certmanager.Locker
+	var storer certmanager.Storer
+	if config.AwsSecretId != "" {
+		lockingStorer, err := awssecretsmanager.New(config.AwsSecretId, logger)
+		if err != nil {
+			return nil, err
+		}
+		locker = lockingStorer
+		storer = lockingStorer
+	}
 	cm, err := certmanager.New(config.DomainNames, certFilename, keyFilename,
-		nil, config.ChallengeType, responder, nil, 0.0, "", logger)
+		locker, config.ChallengeType, responder, storer, 0.0, "", logger)
 	if err != nil {
 		return nil, err
 	}
