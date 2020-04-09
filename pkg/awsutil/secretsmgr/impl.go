@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
@@ -15,62 +14,17 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
-type cacheEntry struct {
-	fetchTime time.Time
-	secrets   map[string]string
-}
-
-var (
-	cacheLock sync.Mutex
-	cache     = make(map[string]cacheEntry) // Key: region/secretId.
-)
-
 func getAwsSecret(metadataClient *ec2metadata.EC2Metadata,
 	secretId string, logger log.DebugLogger) (map[string]string, error) {
-	region, err := getRegion(metadataClient, secretId)
-	if err != nil {
+	if awsService, err := makeService(metadataClient, secretId); err != nil {
 		return nil, err
+	} else {
+		return getAwsSecretUncached(awsService, secretId, logger)
 	}
-	return getAwsSecretUncached(region, secretId, logger)
 }
 
-func getAwsSecretWithCache(metadataClient *ec2metadata.EC2Metadata,
-	secretId string, maximumAge time.Duration,
-	logger log.DebugLogger) (map[string]string, error) {
-	region, err := getRegion(metadataClient, secretId)
-	if err != nil {
-		return nil, err
-	}
-	key := region + "/" + secretId
-	cacheLock.Lock()
-	defer cacheLock.Unlock()
-	if entry, ok := cache[key]; ok {
-		if d := time.Until(entry.fetchTime); d >= 0 && d < maximumAge {
-			logger.Debugf(1, "fetched AWS Secret: %s from cache\n", secretId)
-			return entry.secrets, nil
-		}
-		delete(cache, key)
-	}
-	secrets, err := getAwsSecretUncached(region, secretId, logger)
-	if err != nil {
-		return nil, err
-	}
-	cache[key] = cacheEntry{fetchTime: time.Now(), secrets: secrets}
-	return secrets, nil
-}
-
-func getAwsSecretUncached(region, secretId string,
-	logger log.DebugLogger) (map[string]string, error) {
-	awsSession, err := session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error creating session: %s", err)
-	}
-	if awsSession == nil {
-		return nil, errors.New("awsSession == nil")
-	}
-	awsService := secretsmanager.New(awsSession)
+func getAwsSecretUncached(awsService *secretsmanager.SecretsManager,
+	secretId string, logger log.DebugLogger) (map[string]string, error) {
 	input := secretsmanager.GetSecretValueInput{SecretId: aws.String(secretId)}
 	output, err := awsService.GetSecretValue(&input)
 	if err != nil {
@@ -96,4 +50,58 @@ func getRegion(metadataClient *ec2metadata.EC2Metadata,
 	} else {
 		return metadataClient.Region()
 	}
+}
+
+func makeService(metadataClient *ec2metadata.EC2Metadata,
+	secretId string) (*secretsmanager.SecretsManager, error) {
+	region, err := getRegion(metadataClient, secretId)
+	if err != nil {
+		return nil, err
+	}
+	awsSession, err := session.NewSession(&aws.Config{
+		Region: aws.String(region),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error creating session: %s", err)
+	}
+	if awsSession == nil {
+		return nil, errors.New("awsSession == nil")
+	}
+	return secretsmanager.New(awsSession), nil
+}
+
+func newCachedSecret(metadataClient *ec2metadata.EC2Metadata,
+	secretId string, maximumAge time.Duration,
+	logger log.DebugLogger) (*CachedSecret, error) {
+	if metadataClient == nil {
+		return nil, errors.New("nil metadataClient")
+	}
+	if awsService, err := makeService(metadataClient, secretId); err != nil {
+		return nil, err
+	} else {
+		logger.Debugf(1, "created cached AWS Secret: %s, lifetime: %s\n",
+			secretId, maximumAge)
+		return &CachedSecret{
+			awsService: awsService,
+			logger:     logger,
+			maximumAge: maximumAge,
+			secretId:   secretId,
+		}, nil
+	}
+}
+
+func (cs *CachedSecret) getSecret() (map[string]string, error) {
+	cs.mutex.Lock()
+	defer cs.mutex.Unlock()
+	if time.Since(cs.fetchTime) < cs.maximumAge {
+		cs.logger.Debugf(1, "fetched AWS Secret: %s from cache\n", cs.secretId)
+		return cs.secrets, nil
+	}
+	secrets, err := getAwsSecretUncached(cs.awsService, cs.secretId, cs.logger)
+	if err != nil {
+		return nil, err
+	}
+	cs.fetchTime = time.Now()
+	cs.secrets = secrets
+	return secrets, nil
 }
