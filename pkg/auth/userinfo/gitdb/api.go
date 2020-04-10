@@ -16,6 +16,7 @@ type UserInfo struct {
 	logger        log.DebugLogger
 	rwMutex       sync.RWMutex                   // Protect everything below.
 	groupsPerUser map[string]map[string]struct{} // K: username, V: groups.
+	usersPerGroup map[string]map[string]struct{} // K: groupname, V: usernames.
 }
 
 func New(repositoryURL, branch, localRepositoryDir string,
@@ -33,8 +34,16 @@ func NewWithConfig(config Config, logger log.DebugLogger) (*UserInfo, error) {
 	return newDB(config, logger)
 }
 
+func (uinfo *UserInfo) GetGroups() ([]string, error) {
+	return uinfo.getGroups()
+}
+
 func (uinfo *UserInfo) GetUserGroups(username string) ([]string, error) {
 	return uinfo.getUserGroups(username)
+}
+
+func (uinfo *UserInfo) GetUsersInGroup(groupname string) ([]string, error) {
+	return uinfo.getUsersInGroup(groupname)
 }
 
 func (uinfo *UserInfo) GetUsersInGroups() ([]string, error) {
