@@ -52,39 +52,27 @@ func showUserGroups(writer io.Writer, source, username string,
 		return err
 	}
 	sort.Strings(usernames)
-	usersPerGroup := make(map[string]map[string]struct{})
 	for _, username := range usernames {
 		if groups, err := db.GetUserGroups(username); err != nil {
 			return err
 		} else {
 			showLine(writer, username, groups)
-			for _, group := range groups {
-				if usersInGroup, ok := usersPerGroup[group]; !ok {
-					usersPerGroup[group] = map[string]struct{}{username: {}}
-				} else {
-					usersInGroup[username] = struct{}{}
-				}
-			}
 		}
 	}
 	writer.Write(divider)
-	groups := make([]string, 0, len(usersPerGroup))
-	for group := range usersPerGroup {
-		groups = append(groups, group)
+	groups, err := db.GetGroups()
+	if err != nil {
+		return err
 	}
 	sort.Strings(groups)
 	for _, group := range groups {
-		showLine(writer, group, mapToSlice(usersPerGroup[group]))
+		if users, err := db.GetUsersInGroup(group); err != nil {
+			return err
+		} else {
+			showLine(writer, group, users)
+		}
 	}
 	return nil
-}
-
-func mapToSlice(list map[string]struct{}) []string {
-	retval := make([]string, 0, len(list))
-	for entry := range list {
-		retval = append(retval, entry)
-	}
-	return retval
 }
 
 func showLine(writer io.Writer, key string, values []string) {
