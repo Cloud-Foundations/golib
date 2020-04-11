@@ -266,10 +266,8 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 			cm.logger.Println(err)
 		} else { // Make use of newer certificate, even if expired, then rewnew.
 			cm.rwMutex.Lock()
-			if cm.certificate == nil {
-				go cm.fileWrite(cert)
-				cm.certificate = cert
-			} else if cert.notAfter.After(cm.certificate.notAfter) {
+			if cm.certificate == nil ||
+				cert.notAfter.After(cm.certificate.notAfter) {
 				go cm.fileWrite(cert)
 				cm.certificate = cert
 			} else {
