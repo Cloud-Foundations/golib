@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
 	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
@@ -70,6 +71,9 @@ func (ls *loadStateType) loadDirectory(dirname string) error {
 		}
 		return err
 	}
+	if !sort.StringsAreSorted(permittedGroupsExpressions) {
+		ls.logger.Printf("%s: permitted groups are not sorted\n", dirname)
+	}
 	permittedGroupsREs := make([]*regexp.Regexp, 0,
 		len(permittedGroupsExpressions))
 	for _, regex := range permittedGroupsExpressions {
@@ -88,6 +92,14 @@ func (ls *loadStateType) loadDirectory(dirname string) error {
 		return nil
 	}
 	for _, group := range groups {
+		if !sort.StringsAreSorted(group.GroupMembers) {
+			ls.logger.Printf("%s/%s: GroupMembers are not sorted\n",
+				dirname, group.Name)
+		}
+		if !sort.StringsAreSorted(group.UserMembers) {
+			ls.logger.Printf("%s/%s: UserMembers are not sorted\n",
+				dirname, group.Name)
+		}
 		permitted := false
 		for _, re := range permittedGroupsREs {
 			if re.MatchString(group.Name) {
