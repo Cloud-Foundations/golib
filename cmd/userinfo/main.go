@@ -10,6 +10,11 @@ import (
 	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
 )
 
+var (
+	ignoreErrors = flag.Bool("ignoreErrors", false,
+		"If true, ignore errors in the DB")
+)
+
 func printUsage() {
 	w := flag.CommandLine.Output()
 	fmt.Fprintln(w, "Usage: userinfo [flags...] command [args...]")

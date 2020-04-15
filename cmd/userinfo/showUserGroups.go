@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -35,9 +36,19 @@ func showUserGroups(writer io.Writer, source, username string,
 		}
 		defer os.RemoveAll(tmpdir)
 	}
+	memoryLogger := newMemoryLogger()
+	if !*ignoreErrors {
+		logger = memoryLogger
+	}
 	db, err := gitdb.New(source, "", tmpdir, time.Hour, logger)
 	if err != nil {
 		return err
+	}
+	if memoryLogger.buffer.Len() > 0 {
+		if _, err := memoryLogger.buffer.WriteTo(os.Stderr); err != nil {
+			return err
+		}
+		return errors.New("database not clean")
 	}
 	if username != "" {
 		if groups, err := db.GetUserGroups(username); err != nil {
