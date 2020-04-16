@@ -2,6 +2,7 @@ package configuredemail
 
 import (
 	"fmt"
+	"net"
 	"net/smtp"
 	"os"
 
@@ -11,16 +12,24 @@ import (
 )
 
 type emailManager struct {
-	awsSecret  *secretsmgr.CachedSecret
-	logger     log.DebugLogger
-	password   string
-	smtpServer string
-	username   string
+	awsSecret   *secretsmgr.CachedSecret
+	logger      log.DebugLogger
+	password    string
+	smtpAddress string
+	smtpServer  string
+	username    string
 }
 
 func newEmailSender(config EmailConfig,
 	logger log.DebugLogger) (*emailManager, error) {
-	m := &emailManager{logger: logger, smtpServer: config.SmtpServer}
+	m := &emailManager{logger: logger}
+	if host, _, err := net.SplitHostPort(config.SmtpServer); err != nil {
+		m.smtpAddress = config.SmtpServer + ":25"
+		m.smtpServer = config.SmtpServer
+	} else {
+		m.smtpAddress = config.SmtpServer
+		m.smtpServer = host
+	}
 	if config.AwsSecretId != "" {
 		metadataClient, err := metadata.GetMetadataClient()
 		if err != nil {
@@ -80,7 +89,7 @@ func (m *emailManager) getLoginFromAws() (string, string, error) {
 
 func (m *emailManager) sendMailWithAuth(auth smtp.Auth, from string,
 	to []string, msg []byte) error {
-	err := smtp.SendMail(m.smtpServer+":25", auth, from, to, msg)
+	err := smtp.SendMail(m.smtpAddress, auth, from, to, msg)
 	if err != nil {
 		return err
 	}
