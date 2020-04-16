@@ -181,15 +181,39 @@ func (loadState *loadStateType) processGroup(group *groupType,
 	group.users = userList
 }
 
+func (uinfo *UserInfo) getGroups() ([]string, error) {
+	uinfo.rwMutex.RLock()
+	defer uinfo.rwMutex.RUnlock()
+	groups := make([]string, 0, len(uinfo.usersPerGroup))
+	for group := range uinfo.usersPerGroup {
+		groups = append(groups, group)
+	}
+	return groups, nil
+}
+
 func (uinfo *UserInfo) getUserGroups(username string) ([]string, error) {
 	uinfo.rwMutex.RLock()
 	groupsMap := uinfo.groupsPerUser[username]
+	uinfo.rwMutex.RUnlock()
 	groups := make([]string, 0, len(groupsMap))
 	for group := range groupsMap {
 		groups = append(groups, group)
 	}
-	uinfo.rwMutex.RUnlock()
 	return groups, nil
+}
+
+func (uinfo *UserInfo) getUsersInGroup(groupname string) ([]string, error) {
+	uinfo.rwMutex.RLock()
+	group, ok := uinfo.usersPerGroup[groupname]
+	uinfo.rwMutex.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("group: %s not found", groupname)
+	}
+	usernames := make([]string, 0, len(group))
+	for username := range group {
+		usernames = append(usernames, username)
+	}
+	return usernames, nil
 }
 
 func (uinfo *UserInfo) getUsersInGroups() ([]string, error) {
@@ -218,12 +242,15 @@ func (uinfo *UserInfo) loadDatabase(dirname string) error {
 	if err := walkDirectory(dirname, loadState, uinfo.logger); err != nil {
 		return err
 	}
+	usersPerGroup := make(map[string]map[string]struct{})
 	for _, group := range loadState.groupsMap {
 		loadState.processGroup(group, uinfo.logger)
+		usersPerGroup[group.Name] = group.users
 	}
 	uinfo.rwMutex.Lock()
 	defer uinfo.rwMutex.Unlock()
 	uinfo.groupsPerUser = loadState.groupsPerUser
+	uinfo.usersPerGroup = usersPerGroup
 	return nil
 }
 
