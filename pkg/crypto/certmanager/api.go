@@ -55,6 +55,7 @@ type CertificateManager struct {
 	responder      Responder
 	storer         Storer
 	logger         log.DebugLogger
+	writeNotifier  chan struct{}
 	rwMutex        sync.RWMutex // Protect everything below.
 	certificate    *Certificate
 }
@@ -124,4 +125,10 @@ func New(names []string, certFilename, keyFilename string, locker Locker,
 func (cm *CertificateManager) GetCertificate(hello *tls.ClientHelloInfo) (
 	*tls.Certificate, error) {
 	return cm.getCertificate(hello)
+}
+
+// GetWriteNotifier returns the channel to which certificate write notifications
+// are sent.
+func (cm *CertificateManager) GetWriteNotifier() <-chan struct{} {
+	return cm.writeNotifier
 }
