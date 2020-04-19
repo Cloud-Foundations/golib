@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
 	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
@@ -25,7 +27,7 @@ var (
 		"The DNS provider to use for the dns-01 challenge")
 	key        = flag.String("key", "", "file to read/write key from/to")
 	portNumber = flag.Uint("portNumber", 80,
-		"port number for http-01 challenge response")
+		"port number to listen on for http-01 challenge response")
 	production = flag.Bool("production", false,
 		"If true, use productionDirectoryURL")
 	productionDirectoryURL = flag.String("productionDirectoryURL",
@@ -33,6 +35,8 @@ var (
 		"The directory endpoint for the Certificate Authority Production URL")
 	route53ZoneId = flag.String("route53ZoneId", "",
 		"Route 53 Hosted Zone ID for dns-01 challenge response")
+	notifierCommand = flag.String("notifierCommand", "",
+		"Optional command and arguments to run when the certificate is written")
 	stagingDirectoryURL = flag.String("stagingDirectoryURL",
 		certmanager.LetsEncryptStagingURL,
 		"The directory endpoint for the Certificate Authority staging URL")
@@ -82,7 +86,7 @@ func printUsage() {
 	fmt.Fprintln(w, "  http-01: respond via HTTP")
 	fmt.Fprintln(w, "DNS providers:")
 	fmt.Fprintln(w, "  manual:  manually update DNS during ACME challenge")
-	fmt.Fprintln(w, "  route53: AWS Route 53. Requires an instance role")
+	fmt.Fprintln(w, "  route53: AWS Route 53. Requires an instance role with zone write access")
 }
 
 func runCertmanager(domains []string, logger log.DebugLogger) error {
@@ -129,7 +133,23 @@ func runCertmanager(domains []string, logger log.DebugLogger) error {
 		return err
 	}
 	logger.Println("certificate manager created")
-	_ = cm
-	select {}
+	for range cm.GetWriteNotifier() {
+		if err := runNotifier(); err != nil {
+			logger.Println(err)
+		}
+	}
+	return nil
+}
+
+func runNotifier() error {
+	splitCommand := strings.Fields(*notifierCommand)
+	if len(splitCommand) < 1 {
+		return nil
+	}
+	cmd := exec.Command(splitCommand[0], splitCommand[1:]...)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("error running: %s: %s: %s",
+			splitCommand[0], err, string(output))
+	}
 	return nil
 }
