@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
-	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
+	"github.com/Cloud-Foundations/Dominator/lib/log/serverlogger"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/dns/route53"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http"
@@ -56,7 +56,7 @@ func getDnsResponder(logger log.DebugLogger) (certmanager.Responder, error) {
 }
 
 func doMain() int {
-	if err := loadflags.LoadForCli("certmanager"); err != nil {
+	if err := loadflags.LoadForDaemon("certmanager"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -66,7 +66,7 @@ func doMain() int {
 		printUsage()
 		return 3
 	}
-	logger := cmdlogger.New()
+	logger := serverlogger.New("")
 	if err := runCertmanager(flag.Args(), logger); err != nil {
 		logger.Println(err)
 		return 1
