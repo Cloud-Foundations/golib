@@ -25,6 +25,8 @@ var (
 	challenge   = flag.String("challenge", "http-01", "ACME challenge type")
 	dnsProvider = flag.String("dnsProvider", "route53",
 		"The DNS provider to use for the dns-01 challenge")
+	domains = flag.String("domains", "",
+		"Space separated list of domains to request a certificate for")
 	key        = flag.String("key", "", "file to read/write key from/to")
 	portNumber = flag.Uint("portNumber", 80,
 		"port number to listen on for http-01 challenge response")
@@ -62,12 +64,10 @@ func doMain() int {
 	}
 	flag.Usage = printUsage
 	flag.Parse()
-	if flag.NArg() < 1 {
-		printUsage()
-		return 3
-	}
 	logger := serverlogger.New("")
-	if err := runCertmanager(flag.Args(), logger); err != nil {
+	domainList := flag.Args()
+	domainList = append(domainList, strings.Fields(*domains)...)
+	if err := runCertmanager(domainList, logger); err != nil {
 		logger.Println(err)
 		return 1
 	}
@@ -80,7 +80,7 @@ func main() {
 
 func printUsage() {
 	w := flag.CommandLine.Output()
-	fmt.Fprintln(w, "Usage: certmanager [flags...] domain...")
+	fmt.Fprintln(w, "Usage: certmanager [flags...] [domain...]")
 	fmt.Fprintln(w, "Common flags:")
 	flag.PrintDefaults()
 	fmt.Fprintln(w, "ACME challenge types:")
@@ -91,7 +91,7 @@ func printUsage() {
 	fmt.Fprintln(w, "  route53: AWS Route 53. Requires an instance role with zone write access")
 }
 
-func runCertmanager(domains []string, logger log.DebugLogger) error {
+func runCertmanager(domainList []string, logger log.DebugLogger) error {
 	if *cert == "" {
 		return errors.New("no cert file specified")
 	}
@@ -134,7 +134,7 @@ func runCertmanager(domains []string, logger log.DebugLogger) error {
 		locker = lockingStorer
 		storer = lockingStorer
 	}
-	cm, err := certmanager.New(domains, *cert, *key, locker, *challenge,
+	cm, err := certmanager.New(domainList, *cert, *key, locker, *challenge,
 		responder, storer, 0.0, directoryURL, logger)
 	if err != nil {
 		return err
