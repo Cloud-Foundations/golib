@@ -52,7 +52,7 @@ var (
 		certmanager.LetsEncryptProductionURL,
 		"The directory endpoint for the Certificate Authority Production URL")
 	redirect = flag.Bool("redirect", false,
-		"If true, ")
+		"If true, redirect non-ACME HTTP requests to HTTPS")
 	route53ZoneId = flag.String("route53ZoneId", "",
 		"Route 53 Hosted Zone ID for dns-01 challenge response")
 	notifierCommand = flag.String("notifierCommand", "",
