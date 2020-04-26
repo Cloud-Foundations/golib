@@ -74,11 +74,12 @@ func getDnsResponder(logger log.DebugLogger) (certmanager.Responder, error) {
 }
 
 func doMain() int {
+	flag.Usage = printUsage
 	if err := loadflags.LoadForDaemon("certmanager"); err != nil {
+		printUsage()
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	flag.Usage = printUsage
 	flag.Parse()
 	tricorder.RegisterFlags()
 	logger := serverlogger.New("")
