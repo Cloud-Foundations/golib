@@ -28,7 +28,7 @@ type Responder struct {
 }
 
 // CreateRedirectServer is a convenience function that creates a redirecting
-// HTTP server on port portNum. Do not use this if NewListener is also used.
+// HTTP server on port portNum. Do not use this if NewServer is also used.
 func CreateRedirectServer(portNum uint16, logger log.DebugLogger) error {
 	return createRedirectServer(portNum, logger)
 }

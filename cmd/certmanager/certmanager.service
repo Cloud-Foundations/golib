@@ -1,0 +1,11 @@
+[Unit]
+Description=Certmanager X.509 Web certificate generation service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/certmanager
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=multi-user.target

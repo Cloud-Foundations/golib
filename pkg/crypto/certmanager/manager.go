@@ -189,6 +189,7 @@ func newManager(names []string, certFilename, keyFilename string, locker Locker,
 		responder:      responder,
 		storer:         storer,
 		logger:         logger,
+		writeNotifier:  make(chan struct{}, 1),
 	}
 	go cm.begin()
 	return cm, nil
@@ -309,6 +310,10 @@ func (cm *CertificateManager) fileLoad() error {
 func (cm *CertificateManager) fileWrite(cert *Certificate) {
 	if err := cm.fileWriteError(cert); err != nil {
 		cm.logger.Println(err)
+	}
+	select { // Non-blocking notify.
+	case cm.writeNotifier <- struct{}{}:
+	default:
 	}
 	cm.logger.Printf("wrote certificate to: %s\n", cm.certFilename)
 }
