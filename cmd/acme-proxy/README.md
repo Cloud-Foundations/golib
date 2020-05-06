@@ -1,7 +1,7 @@
 # acme-proxy
 ACME Proxy.
 
-The *acme-proxy* will forward
+The *acme-proxy* will cache and/or forward
 [ACME](https://en.wikipedia.org/wiki/Automated_Certificate_Management_Environment)
 http-01 challenge-response requests. It is typically used to allow certificate
 managers for Web servers which are not publicly accessible to request X.509
@@ -13,13 +13,31 @@ external server such as [certmanager](../certmanager/README.md). The certificate
 manager is the component which issues ACME requests and must respond to http-01
 challenge-response requests.
 
-It is not necessary to configure *acme-proxy* to direct where to forward
-http-01 challenge-response requests, instead, *acme-proxy* expects to be run
-in a [split-horizon DNS](https://en.wikipedia.org/wiki/Split-horizon_DNS)
+The *acme-proxy* expects to be run in a
+[split-horizon DNS](https://en.wikipedia.org/wiki/Split-horizon_DNS)
 environment. Every FQDN for which X.509 certificates will be requested must
 resolve to the *acme-proxy* in the external (public Internet) DNS view and must
 resolve to the Web server certificate manager in the internal DNS view which
 *acme-proxy* sees.
+
+## Caching mode
+If the certificate manager is based on the
+[certmanager](../../pkg/crypto/certmanager/) package then it will upload http-01
+challenge responses to *acme-proxy* which will in turn respond with these
+cached responses. The *acme-proxy* expands the list of IP addresses for the
+request (the Web server host) and checks for a match with the IP address of the
+certificate manager which uploaded the response. This mode of operation is
+preferred as it does not require *acme-proxy* to connect to the back-end
+servers, thus supporting the highest level of security.
+
+## Forwarding mode
+If a certificate manager does not support the caching protocol, then
+*acme-proxy* will automatically fall back to simple forwarding of the
+challenge-response requests.
+
+It is not necessary to configure *acme-proxy* to direct where to forward
+http-01 challenge-response requests, instead, *acme-proxy* uses the internal DNS
+iew to determine where to forward requests to.
 
 Only http-01 challenge-response requests are forwarded by *acme-proxy*. No other
 requests are forwarded, keeping internal Web servers safe from hostile traffic.
