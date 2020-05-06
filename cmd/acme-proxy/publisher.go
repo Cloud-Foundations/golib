@@ -53,6 +53,7 @@ func (proxy *acmeProxy) cleanupHandler(w http.ResponseWriter,
 	if err != nil {
 		http.Error(w, "Cannot split host:port", http.StatusInternalServerError)
 		proxy.logger.Println(err)
+		return
 	}
 	proxy.rwMutex.Lock()
 	defer proxy.rwMutex.Unlock()
