@@ -1,0 +1,13 @@
+[Unit]
+Description=ACME Proxy service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/sbin/acme-proxy
+Restart=always
+RestartSec=20
+User=acme-proxy
+Group=acme-proxy
+
+[Install]
+WantedBy=multi-user.target
