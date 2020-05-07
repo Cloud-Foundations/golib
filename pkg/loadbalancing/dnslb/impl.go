@@ -35,6 +35,9 @@ func newLoadBalancer(config Config, backend RecordReadWriter,
 	if config.CheckInterval < time.Second*5 {
 		config.CheckInterval = time.Second * 5
 	}
+	if config.MinimumFailures < 1 {
+		config.MinimumFailures = 3
+	}
 	if config.TcpPort < 1 {
 		return nil, errors.New("no TCP port number specified")
 	}
@@ -44,10 +47,11 @@ func newLoadBalancer(config Config, backend RecordReadWriter,
 	}
 	seed, _ := binary.Varint(crandData)
 	lb := &LoadBalancer{
-		backend: backend,
-		config:  config,
-		logger:  logger,
-		rand:    mrand.New(mrand.NewSource(seed)),
+		backend:  backend,
+		config:   config,
+		failures: make(map[string]uint),
+		logger:   logger,
+		rand:     mrand.New(mrand.NewSource(seed)),
 	}
 	if myIP, err := util.GetMyIP(); err != nil {
 		return nil, err
@@ -118,6 +122,16 @@ func (lb *LoadBalancer) check() error {
 	_, present := checkMap[lb.myStringIP]
 	delete(checkMap, lb.myStringIP)
 	badMap := lb.checkIPs(checkMap)
+	for ip := range lb.failures { // Clean up old failures.
+		if _, ok := badMap[ip]; !ok {
+			delete(lb.failures, ip)
+		}
+	}
+	for ip := range badMap {
+		if lb.failures[ip]++; lb.failures[ip] < lb.config.MinimumFailures {
+			delete(badMap, ip) // Has not been bad long enough.
+		}
+	}
 	if present &&
 		len(badMap) < 1 &&
 		time.Since(startTime) < lb.config.CheckInterval>>4 {
@@ -139,6 +153,8 @@ func (lb *LoadBalancer) check() error {
 			foundMyself = true
 		} else if _, ok := badMap[ipString]; !ok {
 			newList = append(newList, ip)
+		} else {
+			delete(lb.failures, ipString) // Reset failure count.
 		}
 	}
 	if !foundMyself {

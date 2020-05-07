@@ -36,10 +36,11 @@ import (
 )
 
 type Config struct {
-	CheckInterval time.Duration `yaml:"check_interval"`
-	DoTLS         bool          `yaml:"do_tls"`
-	FQDN          string        `yaml:"fqdn"`
-	TcpPort       uint16        `yaml:"tcp_port"`
+	CheckInterval   time.Duration `yaml:"check_interval"` // Minumum: 5s.
+	DoTLS           bool          `yaml:"do_tls"`
+	FQDN            string        `yaml:"fqdn"`
+	MinimumFailures uint          `yaml:"minimum_failures"` // Default: 3.
+	TcpPort         uint16        `yaml:"tcp_port"`
 }
 
 // RecordReadWriter implements a DNS record reader and writer. It is used to
@@ -52,6 +53,7 @@ type RecordReadWriter interface {
 type LoadBalancer struct {
 	backend    RecordReadWriter
 	config     Config
+	failures   map[string]uint // Key: IP, value: failure count.
 	myIP       net.IP
 	myStringIP string
 	logger     log.DebugLogger
