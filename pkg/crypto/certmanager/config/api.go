@@ -14,6 +14,7 @@ type AcmeConfig struct {
 	ChallengeType       string   `yaml:"challenge_type"`
 	DomainNames         []string `yaml:"domain_names"`
 	HttpPort            uint16   `yaml:"http_port"`              // For http-01.
+	Proxy               string   `yaml:"proxy"`                  // For http-01.
 	Route53HostedZoneId string   `yaml:"route53_hosted_zone_id"` // For dns-01.
 }
 

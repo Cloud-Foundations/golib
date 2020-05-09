@@ -1,11 +1,15 @@
 package config
 
 import (
+	"fmt"
+	"net"
 	"net/http"
 
+	"github.com/Cloud-Foundations/golib/pkg/constants"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/dns/route53"
 	cm_http "github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http"
+	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http_proxy"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/storage/awssecretsmanager"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
@@ -23,20 +27,25 @@ func newManager(certFilename, keyFilename string, httpRedirectPort uint16,
 	case "dns-01":
 		responder, err = route53.New(config.Route53HostedZoneId,
 			logger)
-		if err != nil {
-			return nil, err
-		}
 	case "http-01":
-		var fallbackHandler http.Handler
-		if config.HttpPort == httpRedirectPort {
-			fallbackHandler = &cm_http.RedirectHandler{}
-			httpRedirectPort = 0
+		if config.Proxy == "" {
+			var fallbackHandler http.Handler
+			if config.HttpPort == httpRedirectPort {
+				fallbackHandler = &cm_http.RedirectHandler{}
+				httpRedirectPort = 0
+			}
+			responder, err = cm_http.NewServer(config.HttpPort,
+				fallbackHandler, logger)
+		} else {
+			if _, _, err := net.SplitHostPort(config.Proxy); err != nil {
+				config.Proxy = fmt.Sprintf("%s:%d", config.Proxy,
+					constants.AcmeProxyPortNumber)
+			}
+			responder, err = http_proxy.New(config.Proxy, logger)
 		}
-		responder, err = cm_http.NewServer(config.HttpPort,
-			fallbackHandler, logger)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	if httpRedirectPort > 0 {
 		err := cm_http.CreateRedirectServer(httpRedirectPort, logger)
