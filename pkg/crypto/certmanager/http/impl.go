@@ -6,10 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Cloud-Foundations/golib/pkg/constants"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
-
-const acmePath = "/.well-known/acme-challenge"
 
 func createListener(portNum uint16) (net.Listener, error) {
 	return net.Listen("tcp", ":"+strconv.FormatInt(int64(portNum), 10))
@@ -113,7 +112,7 @@ func (r *Responder) cleanup() {
 func (r *Responder) serveHTTP(w http.ResponseWriter, req *http.Request) {
 	r.logger.Debugf(1, "source: %s, method: %s, path: %s\n",
 		req.RemoteAddr, req.Method, req.URL.Path)
-	if !strings.HasPrefix(req.URL.Path, acmePath) {
+	if !strings.HasPrefix(req.URL.Path, constants.AcmePath) {
 		if r.fallback == nil {
 			http.Error(w, "not an ACME challenge", http.StatusNotFound)
 		} else {
