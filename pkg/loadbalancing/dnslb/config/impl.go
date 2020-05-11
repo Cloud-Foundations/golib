@@ -9,13 +9,19 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
-type dnsConfigureFunc func(config Config,
-	logger log.DebugLogger) (dnslb.RecordReadWriter, time.Duration, error)
+type dnsConfigureFunc func(config *Config, params *dnslb.Params) error
 
-func awsRoute53Configure(config Config,
-	logger log.DebugLogger) (dnslb.RecordReadWriter, time.Duration, error) {
-	rrw, err := route53.New(config.Route53HostedZoneId, logger)
-	return rrw, time.Minute, err
+func awsRoute53Configure(config *Config, params *dnslb.Params) error {
+	if config.CheckInterval < 1 {
+		config.CheckInterval = time.Minute
+	}
+	var err error
+	params.RecordReadWriter, err = route53.New(config.Route53HostedZoneId,
+		params.Logger)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func getDnsConfigureFuncs(config Config) ([]dnsConfigureFunc, error) {
@@ -38,17 +44,11 @@ func newLoadBalancer(config Config,
 	if len(funcs) < 1 {
 		return nil, errors.New("no DNS zone provider specified")
 	}
-	recordReadWriter, defaultCheckInterval, err := funcs[0](config, logger)
-	if err != nil {
+	params := dnslb.Params{Logger: logger}
+	if err := funcs[0](&config, &params); err != nil {
 		return nil, err
 	}
-	if defaultCheckInterval < time.Second*5 {
-		defaultCheckInterval = time.Second * 5
-	}
-	if config.CheckInterval < 1 {
-		config.CheckInterval = defaultCheckInterval
-	}
-	return dnslb.New(config.Config, recordReadWriter, logger)
+	return dnslb.New(config.Config, params)
 }
 
 func (c Config) hasDNS() (bool, error) {

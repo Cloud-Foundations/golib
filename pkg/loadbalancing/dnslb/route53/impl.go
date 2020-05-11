@@ -2,8 +2,6 @@ package route53
 
 import (
 	"errors"
-	"fmt"
-	"net"
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
@@ -31,7 +29,7 @@ func newRecordReadWriter(hostedZoneId string,
 	}, nil
 }
 
-func (rrw *RecordReadWriter) readRecord(fqdn string) ([]net.IP, error) {
+func (rrw *RecordReadWriter) readRecord(fqdn string) ([]string, error) {
 	if fqdn[len(fqdn)-1] != '.' {
 		fqdn += "."
 	}
@@ -44,7 +42,7 @@ func (rrw *RecordReadWriter) readRecord(fqdn string) ([]net.IP, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ips []net.IP
+	var ips []string
 	for _, recordSet := range output.ResourceRecordSets {
 		name := *recordSet.Name
 		if name[0] == '"' && name[len(name)-1] == '"' {
@@ -54,22 +52,18 @@ func (rrw *RecordReadWriter) readRecord(fqdn string) ([]net.IP, error) {
 			continue
 		}
 		for _, record := range recordSet.ResourceRecords {
-			if ip := net.ParseIP(*record.Value); ip == nil {
-				return nil, fmt.Errorf("cannot parse: %s", *record.Value)
-			} else {
-				ips = append(ips, ip)
-			}
+			ips = append(ips, *record.Value)
 		}
 	}
 	return ips, nil
 }
 
-func (rrw *RecordReadWriter) writeRecord(fqdn string, ips []net.IP,
+func (rrw *RecordReadWriter) writeRecord(fqdn string, ips []string,
 	ttl time.Duration) error {
 	var resourceRecords []*route53.ResourceRecord
 	for _, ip := range ips {
 		resourceRecords = append(resourceRecords,
-			&route53.ResourceRecord{Value: aws.String(ip.String())})
+			&route53.ResourceRecord{Value: aws.String(ip)})
 	}
 	input := &route53.ChangeResourceRecordSetsInput{
 		ChangeBatch: &route53.ChangeBatch{

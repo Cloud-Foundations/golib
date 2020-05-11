@@ -29,7 +29,6 @@ package dnslb
 
 import (
 	"math/rand"
-	"net"
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
@@ -43,27 +42,29 @@ type Config struct {
 	TcpPort         uint16        `yaml:"tcp_port"`
 }
 
+type LoadBalancer struct {
+	config   Config
+	failures map[string]uint // Key: IP, value: failure count.
+	myIP     string
+	p        Params
+	rand     *rand.Rand
+}
+
+type Params struct {
+	Logger           log.DebugLogger
+	RecordReadWriter RecordReadWriter
+}
+
 // RecordReadWriter implements a DNS record reader and writer. It is used to
 // plugin the underlying DNS provider.
 type RecordReadWriter interface {
-	ReadRecord(fqdn string) ([]net.IP, error)
-	WriteRecord(fqdn string, ips []net.IP, ttl time.Duration) error
-}
-
-type LoadBalancer struct {
-	backend    RecordReadWriter
-	config     Config
-	failures   map[string]uint // Key: IP, value: failure count.
-	myIP       net.IP
-	myStringIP string
-	logger     log.DebugLogger
-	rand       *rand.Rand
+	ReadRecord(fqdn string) ([]string, error)
+	WriteRecord(fqdn string, ips []string, ttl time.Duration) error
 }
 
 // New creates a *LoadBalancer using the provided configuration and back-end
 // DNS provider. This will launch a goroutine to perform periodic health checks
 // for the peer servers and to self register.
-func New(config Config, backend RecordReadWriter,
-	logger log.DebugLogger) (*LoadBalancer, error) {
-	return newLoadBalancer(config, backend, logger)
+func New(config Config, params Params) (*LoadBalancer, error) {
+	return newLoadBalancer(config, params)
 }

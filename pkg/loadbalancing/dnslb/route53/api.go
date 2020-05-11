@@ -5,7 +5,6 @@ Route 53.
 package route53
 
 import (
-	"net"
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
@@ -25,11 +24,11 @@ func New(hostedZoneId string,
 	return newRecordReadWriter(hostedZoneId, logger)
 }
 
-func (rrw *RecordReadWriter) ReadRecord(fqdn string) ([]net.IP, error) {
+func (rrw *RecordReadWriter) ReadRecord(fqdn string) ([]string, error) {
 	return rrw.readRecord(fqdn)
 }
 
-func (rrw *RecordReadWriter) WriteRecord(fqdn string, ips []net.IP,
+func (rrw *RecordReadWriter) WriteRecord(fqdn string, ips []string,
 	ttl time.Duration) error {
 	return rrw.writeRecord(fqdn, ips, ttl)
 }
