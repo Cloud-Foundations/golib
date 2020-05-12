@@ -38,8 +38,14 @@ type Config struct {
 	CheckInterval   time.Duration `yaml:"check_interval"` // Minumum: 5s.
 	DoTLS           bool          `yaml:"do_tls"`
 	FQDN            string        `yaml:"fqdn"`
-	MinimumFailures uint          `yaml:"minimum_failures"` // Default: 3.
+	MaximumFailures uint          `yaml:"maximum_failures"` // Default: 60.
+	MinimumFailures uint          `yaml:"minimum_failures"` // Default:  3.
 	TcpPort         uint16        `yaml:"tcp_port"`
+}
+
+// Destroyer implements the Destroy method, used to destroy instances.
+type Destroyer interface {
+	Destroy(ips map[string]struct{}) error
 }
 
 type LoadBalancer struct {
@@ -51,8 +57,10 @@ type LoadBalancer struct {
 }
 
 type Params struct {
+	Destroyer        Destroyer
 	Logger           log.DebugLogger
 	RecordReadWriter RecordReadWriter
+	RegionFilter     RegionFilter
 }
 
 // RecordReadWriter implements a DNS record reader and writer. It is used to
@@ -60,6 +68,13 @@ type Params struct {
 type RecordReadWriter interface {
 	ReadRecord(fqdn string) ([]string, error)
 	WriteRecord(fqdn string, ips []string, ttl time.Duration) error
+}
+
+// RegionFilter implements the Filter method, which is used to restrict DNS
+// changes and instance destruction to the same region (this avoids network
+// partition problems).
+type RegionFilter interface {
+	Filter(ips map[string]struct{}) (map[string]struct{}, error)
 }
 
 // New creates a *LoadBalancer using the provided configuration and back-end

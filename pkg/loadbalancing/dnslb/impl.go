@@ -33,14 +33,23 @@ func newLoadBalancer(config Config, params Params) (*LoadBalancer, error) {
 	if config.CheckInterval < time.Second*5 {
 		config.CheckInterval = time.Second * 5
 	}
+	if config.MaximumFailures < 1 {
+		config.MaximumFailures = 60
+	}
 	if config.MinimumFailures < 1 {
 		config.MinimumFailures = 3
 	}
 	if config.TcpPort < 1 {
 		return nil, errors.New("no TCP port number specified")
 	}
+	if params.Destroyer == nil {
+		params.Destroyer = nullInterface
+	}
 	if params.RecordReadWriter == nil {
 		return nil, errors.New("no RecordReadWriter specified")
+	}
+	if params.RegionFilter == nil {
+		params.RegionFilter = nullInterface
 	}
 	crandData := make([]byte, 8)
 	if _, err := crand.Read(crandData); err != nil {
@@ -139,6 +148,20 @@ func (lb *LoadBalancer) check() error {
 			lb.config.FQDN)
 		return nil
 	}
+	removeMap, err := lb.p.RegionFilter.Filter(badMap)
+	if err != nil {
+		return err
+	}
+	if lb.config.MaximumFailures > lb.config.MinimumFailures {
+		for ip := range badMap {
+			if lb.failures[ip] > lb.config.MaximumFailures {
+				removeMap[ip] = struct{}{}
+			}
+		}
+	}
+	if err := lb.p.Destroyer.Destroy(removeMap); err != nil {
+		return err
+	}
 	oldList, err := lb.p.RecordReadWriter.ReadRecord(lb.config.FQDN)
 	if err != nil {
 		return err
@@ -150,7 +173,7 @@ func (lb *LoadBalancer) check() error {
 		if ip == lb.myIP {
 			newList = append(newList, ip)
 			foundMyself = true
-		} else if _, ok := badMap[ip]; !ok {
+		} else if _, ok := removeMap[ip]; !ok {
 			newList = append(newList, ip)
 		} else {
 			delete(lb.failures, ip) // Reset failure count.
