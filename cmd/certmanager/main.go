@@ -14,9 +14,11 @@ import (
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
 	"github.com/Cloud-Foundations/Dominator/lib/html"
 	"github.com/Cloud-Foundations/Dominator/lib/log/serverlogger"
+	"github.com/Cloud-Foundations/golib/pkg/constants"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/dns/route53"
 	cm_http "github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http"
+	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/http_proxy"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/storage/awssecretsmanager"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/Cloud-Foundations/tricorder/go/tricorder"
@@ -32,7 +34,7 @@ type htmlWriterLogger interface {
 }
 
 var (
-	adminPortNum = flag.Uint("adminPortNum", 6940,
+	adminPortNum = flag.Uint("adminPortNum", constants.CertmanagerPortNumber,
 		"admin/dashboard port number to listen on")
 	awsSecretId = flag.String("awsSecretId", "",
 		"Optional AWS Secrets Manager SecretId to read/write certs to")
@@ -51,6 +53,9 @@ var (
 	productionDirectoryURL = flag.String("productionDirectoryURL",
 		certmanager.LetsEncryptProductionURL,
 		"The directory endpoint for the Certificate Authority Production URL")
+	proxyHostname = flag.String("proxyHostname", "", "hostname of acme-proxy")
+	proxyPortNum  = flag.Uint("proxyPortNum", constants.AcmeProxyPortNumber,
+		"port number of acme-proxy")
 	redirect = flag.Bool("redirect", false,
 		"If true, redirect non-ACME HTTP requests to HTTPS")
 	route53ZoneId = flag.String("route53ZoneId", "",
@@ -120,26 +125,35 @@ func runCertmanager(domainList []string, logger htmlWriterLogger) error {
 		return errors.New("no key file specified")
 	}
 	var responder certmanager.Responder
+	var err error
 	switch *challenge {
 	case "dns-01":
-		var err error
 		responder, err = getDnsResponder(logger)
-		if err != nil {
-			return err
-		}
 	case "http-01":
-		var err error
-		if *redirect {
-			responder, err = cm_http.NewServer(uint16(*portNum),
-				&cm_http.RedirectHandler{}, logger)
+		if *proxyHostname == "" {
+			if *redirect {
+				responder, err = cm_http.NewServer(uint16(*portNum),
+					&cm_http.RedirectHandler{}, logger)
+			} else {
+				responder, err = cm_http.NewServer(uint16(*portNum), nil,
+					logger)
+			}
 		} else {
-			responder, err = cm_http.NewServer(uint16(*portNum), nil, logger)
-		}
-		if err != nil {
-			return err
+			if *redirect {
+				err = cm_http.CreateRedirectServer(uint16(*portNum),
+					logger)
+				if err != nil {
+					return err
+				}
+			}
+			responder, err = http_proxy.New(
+				fmt.Sprintf("%s:%d", *proxyHostname, *proxyPortNum), logger)
 		}
 	default:
 		return fmt.Errorf("challenge: %s not supported", *challenge)
+	}
+	if err != nil {
+		return err
 	}
 	directoryURL := *stagingDirectoryURL
 	if *production {

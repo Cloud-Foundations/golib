@@ -9,31 +9,38 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
 	"github.com/Cloud-Foundations/Dominator/lib/html"
 	"github.com/Cloud-Foundations/Dominator/lib/log/serverlogger"
+	"github.com/Cloud-Foundations/golib/pkg/constants"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/Cloud-Foundations/tricorder/go/tricorder"
 )
 
-const acmePath = "/.well-known/acme-challenge"
-
 var (
 	acmePortNum = flag.Uint("acmePortNum", 80,
 		"Port number to allocate and listen on for ACME http-01 challenges")
-	adminPortNum = flag.Uint("adminPortNum", 6941,
+	adminPortNum = flag.Uint("adminPortNum", constants.AcmeProxyPortNumber,
 		"admin/dashboard port number to listen on")
 	fallbackPortNum = flag.Uint("fallbackPortNum", 0,
 		"Backend port number to connect to if port 80 yields 404: Not Found")
 )
 
 type acmeProxy struct {
-	logger log.DebugLogger
+	logger  htmlWriterLogger
+	rwMutex sync.RWMutex              // Protect everything below.
+	ipMap   map[string]*responsesType // Key: IP.
 }
 
-type dashboardType struct {
-	htmlWriter html.HtmlWriter
+type htmlWriterLogger interface {
+	html.HtmlWriter
+	log.DebugLogger
+}
+
+type responsesType struct {
+	pathMap map[string][]byte // Key: path.
 }
 
 func printUsage() {
@@ -51,10 +58,10 @@ func doMain() error {
 	flag.Parse()
 	tricorder.RegisterFlags()
 	logger := serverlogger.New("")
-	if err := setupDashboard(logger); err != nil {
+	server := &acmeProxy{logger: logger}
+	if err := server.setupAdmin(); err != nil {
 		return err
 	}
-	server := &acmeProxy{logger}
 	return http.ListenAndServe(fmt.Sprintf(":%d", *acmePortNum), server)
 }
 
@@ -66,7 +73,7 @@ func main() {
 	os.Exit(0)
 }
 
-func setupDashboard(htmlWriter html.HtmlWriter) error {
+func (proxy *acmeProxy) setupAdmin() error {
 	if *adminPortNum < 1 {
 		return nil
 	}
@@ -74,8 +81,10 @@ func setupDashboard(htmlWriter html.HtmlWriter) error {
 	if err != nil {
 		return err
 	}
-	dashboard := &dashboardType{htmlWriter}
-	html.HandleFunc("/", dashboard.statusHandler)
+	html.HandleFunc("/", proxy.statusHandler)
+	if err := proxy.setupPublisher(); err != nil {
+		return err
+	}
 	go http.Serve(listener, nil)
 	return nil
 }
@@ -83,7 +92,7 @@ func setupDashboard(htmlWriter html.HtmlWriter) error {
 func (proxy *acmeProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	proxy.logger.Debugf(0, "source: %s, method: %s, host: %s, path: %s\n",
 		req.RemoteAddr, req.Method, req.Host, req.URL.Path)
-	if !strings.HasPrefix(req.URL.Path, acmePath) {
+	if !strings.HasPrefix(req.URL.Path, constants.AcmePath) {
 		http.Error(w, "Not an ACME challenge", http.StatusNotFound)
 		return
 	}
@@ -92,6 +101,12 @@ func (proxy *acmeProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	newUrl := "http://" + req.Host + req.URL.Path
+	if data := proxy.getResponse(req.Host, req.URL.Path); len(data) > 0 {
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+		proxy.logger.Printf("%s: OK (cached)\n", newUrl)
+		return
+	}
 	resp, err := http.DefaultClient.Get(newUrl)
 	if err != nil {
 		proxy.logger.Println(err)
@@ -112,7 +127,7 @@ func (proxy *acmeProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		defer resp.Body.Close()
 	}
 	if resp.StatusCode == http.StatusOK {
-		proxy.logger.Printf("%s: OK\n", newUrl)
+		proxy.logger.Printf("%s: OK (forwarded)\n", newUrl)
 	} else {
 		proxy.logger.Printf("%s: %s\n", newUrl, resp.Status)
 	}
@@ -124,7 +139,7 @@ func (proxy *acmeProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (d *dashboardType) statusHandler(w http.ResponseWriter,
+func (proxy *acmeProxy) statusHandler(w http.ResponseWriter,
 	req *http.Request) {
 	if req.URL.Path != "/" {
 		http.NotFound(w, req)
@@ -139,7 +154,7 @@ func (d *dashboardType) statusHandler(w http.ResponseWriter,
 	fmt.Fprintln(writer, "</center>")
 	html.WriteHeaderWithRequest(writer, req)
 	fmt.Fprintln(writer, "<h3>")
-	d.htmlWriter.WriteHtml(writer)
+	proxy.logger.WriteHtml(writer)
 	fmt.Fprintln(writer, "</h3>")
 	fmt.Fprintln(writer, "<hr>")
 	html.WriteFooter(writer)
