@@ -4,7 +4,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Cloud-Foundations/golib/pkg/awsutil/metadata"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb"
+	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/ec2"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/route53"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
@@ -20,6 +22,24 @@ func awsRoute53Configure(config *Config, params *dnslb.Params) error {
 		params.Logger)
 	if err != nil {
 		return err
+	}
+	if config.AllRegions {
+		if !config.Preserve {
+			return errors.New("cannot destroy instances in other regions")
+		}
+		return nil
+	}
+	metadataClient, err := metadata.GetMetadataClient()
+	if err != nil {
+		return err
+	}
+	instanceHandler, err := ec2.New(metadataClient, params.Logger)
+	if err != nil {
+		return err
+	}
+	params.RegionFilter = instanceHandler
+	if !config.Preserve {
+		params.Destroyer = instanceHandler
 	}
 	return nil
 }

@@ -10,7 +10,9 @@ import (
 )
 
 type Config struct {
+	AllRegions          bool `yaml:"all_regions"`
 	dnslb.Config        `yaml:",inline"`
+	Preserve            bool   `yaml:"preserve"`
 	Route53HostedZoneId string `yaml:"route53_hosted_zone_id"`
 }
 
