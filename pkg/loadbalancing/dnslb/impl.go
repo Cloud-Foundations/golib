@@ -73,12 +73,17 @@ func newLoadBalancer(config Config, params Params) (*LoadBalancer, error) {
 
 func (lb *LoadBalancer) checkIP(ip string) probeResultType {
 	addr := fmt.Sprintf("%s:%d", ip, lb.config.TcpPort)
-	conn, err := net.DialTimeout("tcp", addr, lb.config.CheckInterval>>2)
+	checkInterval := lb.config.CheckInterval >> 2
+	deadline := time.Now().Add(checkInterval)
+	conn, err := net.DialTimeout("tcp", addr, checkInterval)
 	if err != nil {
 		return probeResultType{err: err, ip: ip}
 	}
 	defer conn.Close()
 	if lb.config.DoTLS {
+		if err := conn.SetDeadline(deadline); err != nil {
+			return probeResultType{err: err, ip: ip}
+		}
 		tlsConn := tls.Client(conn, &tls.Config{InsecureSkipVerify: true})
 		defer tlsConn.Close()
 		if err := tlsConn.Handshake(); err != nil {
