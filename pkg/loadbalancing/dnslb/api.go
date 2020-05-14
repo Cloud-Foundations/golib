@@ -51,7 +51,7 @@ type Destroyer interface {
 type LoadBalancer struct {
 	config   Config
 	failures map[string]uint // Key: IP, value: failure count.
-	myIP     string
+	myIP     string          // TODO(rgooch): add IPv6 support.
 	p        Params
 	rand     *rand.Rand
 }
