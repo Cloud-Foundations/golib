@@ -23,9 +23,9 @@ func New(config Config, logger log.DebugLogger) (*dnslb.LoadBalancer, error) {
 	return newLoadBalancer(config, logger)
 }
 
-// HasDNS returns true if the configuration has a single DNS back-end provider
+// Check returns true if the configuration has a single DNS back-end provider
 // specified, else it returns false. An error is returned if the configuration
 // is malformed (i.e. multiple DNS back-end providers specified).
-func (c Config) HasDNS() (bool, error) {
-	return c.hasDNS()
+func (c Config) Check() (bool, error) {
+	return c.check()
 }
