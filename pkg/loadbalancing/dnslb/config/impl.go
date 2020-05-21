@@ -71,7 +71,7 @@ func newLoadBalancer(config Config,
 	return dnslb.New(config.Config, params)
 }
 
-func (c Config) hasDNS() (bool, error) {
+func (c Config) check() (bool, error) {
 	funcs, err := getDnsConfigureFuncs(c)
 	if err != nil {
 		return false, err
