@@ -164,7 +164,7 @@ func (lb *LoadBalancer) check() error {
 			}
 		}
 	}
-	if err := lb.p.Destroyer.Destroy(removeMap); err != nil {
+	if err := lb.destroy(removeMap); err != nil {
 		return err
 	}
 	oldList, err := lb.p.RecordReadWriter.ReadRecord(lb.config.FQDN)
@@ -206,4 +206,26 @@ func (lb *LoadBalancer) check() error {
 	lb.p.Logger.Printf("updating DNS for: %s: %v\n", lb.config.FQDN, newList)
 	return lb.p.RecordReadWriter.WriteRecord(lb.config.FQDN, newList,
 		lb.config.CheckInterval)
+}
+
+// destroy will attempt to destroy bad instances. If no instance has exceeded
+// MaximumFailures, return an error, otherwise log error and purge instances
+// with fewer failures from removeMap. This ensures that persistently bad
+// instances which cannot be destroyed will at least be removed from DNS.
+func (lb *LoadBalancer) destroy(removeMap map[string]struct{}) error {
+	err := lb.p.Destroyer.Destroy(removeMap)
+	if err == nil {
+		return nil
+	}
+	// Purge instances with failures under the limit.
+	for ip := range removeMap {
+		if lb.failures[ip] <= lb.config.MaximumFailures {
+			delete(removeMap, ip)
+		}
+	}
+	if len(removeMap) < 1 { // All instances only failed recently.
+		return err
+	}
+	lb.p.Logger.Println(err)
+	return nil
 }
