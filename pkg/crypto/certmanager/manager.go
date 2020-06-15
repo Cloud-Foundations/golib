@@ -7,6 +7,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -49,8 +50,12 @@ func loadCertificate(certFilename, keyFilename string,
 	return cert, nil
 }
 
-func makeKey() (crypto.Signer, error) {
+func makeKeyECDSA() (crypto.Signer, error) {
 	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+}
+
+func makeKeyRSA() (crypto.Signer, error) {
+	return rsa.GenerateKey(rand.Reader, 2048)
 }
 
 func readCert(storer Storer) (*Certificate, error) {
@@ -93,6 +98,15 @@ func makeCert(chainDER [][]byte, key crypto.Signer) (*Certificate, error) {
 		}
 		err = pem.Encode(keyPemBlock, &pem.Block{
 			Type:  "EC PRIVATE KEY",
+			Bytes: keyDER,
+		})
+		if err != nil {
+			return nil, err
+		}
+	case *rsa.PrivateKey:
+		keyDER := x509.MarshalPKCS1PrivateKey(key)
+		err := pem.Encode(keyPemBlock, &pem.Block{
+			Type:  "RSA PRIVATE KEY",
 			Bytes: keyDER,
 		})
 		if err != nil {
@@ -151,7 +165,7 @@ func (cert *Certificate) timeUntilRenewal(renewBefore float64) time.Duration {
 
 func newManager(names []string, certFilename, keyFilename string, locker Locker,
 	challengeType string, responder Responder, storer Storer,
-	renewBefore float64, caDirectoryURL string,
+	renewBefore float64, caDirectoryURL, keyType string,
 	logger log.DebugLogger) (*CertificateManager, error) {
 	if challengeType == "" {
 		cert, err := loadCertificate(certFilename, keyFilename, logger)
@@ -178,11 +192,20 @@ func newManager(names []string, certFilename, keyFilename string, locker Locker,
 	if responder == nil {
 		return nil, errors.New("no responder specified")
 	}
+	keyMaker := makeKeyECDSA
+	switch keyType {
+	case "", "EC":
+	case "RSA":
+		keyMaker = makeKeyRSA
+	default:
+		return nil, errors.New("unsupported key type: " + keyType)
+	}
 	cm := &CertificateManager{
 		caDirectoryURL: caDirectoryURL,
 		certFilename:   certFilename,
 		challengeType:  challengeType,
 		keyFilename:    keyFilename,
+		keyMaker:       keyMaker,
 		locker:         locker,
 		names:          names,
 		renewBefore:    renewBefore,
@@ -358,7 +381,7 @@ func (cm *CertificateManager) makeAcmeClient(ctx context.Context) error {
 	if cm.acmeClient != nil {
 		return nil
 	}
-	key, err := makeKey()
+	key, err := cm.keyMaker()
 	if err != nil {
 		return err
 	}
@@ -467,7 +490,7 @@ func (cm *CertificateManager) request(ctx context.Context) (
 		DNSNames: cm.names[1:],
 	}
 	if cm.key == nil {
-		cm.key, err = makeKey()
+		cm.key, err = cm.keyMaker()
 		if err != nil {
 			return nil, err
 		}

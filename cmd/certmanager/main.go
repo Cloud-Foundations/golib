@@ -46,6 +46,7 @@ var (
 	domains = flag.String("domains", "",
 		"Space separated list of domains to request a certificate for")
 	key     = flag.String("key", "", "file to read/write key from/to")
+	keyType = flag.String("keyType", "EC", "key type (EC/RSA)")
 	portNum = flag.Uint("portNum", 80,
 		"port number to listen on for http-01 challenge response")
 	production = flag.Bool("production", false,
@@ -170,7 +171,7 @@ func runCertmanager(domainList []string, logger htmlWriterLogger) error {
 		storer = lockingStorer
 	}
 	cm, err := certmanager.New(domainList, *cert, *key, locker, *challenge,
-		responder, storer, 0.0, directoryURL, logger)
+		responder, storer, 0.0, directoryURL, *keyType, logger)
 	if err != nil {
 		return err
 	}
