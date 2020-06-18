@@ -20,6 +20,8 @@ LOOP_PIDFILE='/var/run/certmanager.loop.pid'
 PIDFILE='/var/run/certmanager.pid'
 USERNAME='certmanager'
 
+[ -f /etc/default/certmanager ] && . /etc/default/certmanager
+
 test -x "$DAEMON" || exit 0
 
 export PATH="${PATH:+$PATH:}/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin"
