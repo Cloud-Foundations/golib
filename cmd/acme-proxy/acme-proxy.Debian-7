@@ -20,6 +20,8 @@ LOOP_PIDFILE='/var/run/acme-proxy.loop.pid'
 PIDFILE='/var/run/acme-proxy.pid'
 USERNAME='acme-proxy'
 
+[ -f /etc/default/acme-proxy ] && . /etc/default/acme-proxy
+
 test -x "$DAEMON" || exit 0
 
 export PATH="${PATH:+$PATH:}/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin"
