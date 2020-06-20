@@ -381,7 +381,7 @@ func (cm *CertificateManager) makeAcmeClient(ctx context.Context) error {
 	if cm.acmeClient != nil {
 		return nil
 	}
-	key, err := cm.keyMaker()
+	key, err := makeKeyECDSA()
 	if err != nil {
 		return err
 	}
