@@ -151,9 +151,23 @@ func (cert *Certificate) parse() error {
 	return nil
 }
 
-func (cert *Certificate) timeUntilRenewal(renewBefore float64) time.Duration {
+func (cert *Certificate) timeUntilRenewal(renewBefore float64,
+	requiredNames []string, logger log.Logger) time.Duration {
 	if cert == nil {
 		return -1
+	}
+	if len(requiredNames) > 0 {
+		certNames := make(map[string]struct{}, len(cert.tlsCert.Leaf.DNSNames))
+		certNames[cert.tlsCert.Leaf.Subject.CommonName] = struct{}{}
+		for _, name := range cert.tlsCert.Leaf.DNSNames {
+			certNames[name] = struct{}{}
+		}
+		for _, name := range requiredNames {
+			if _, ok := certNames[name]; !ok {
+				logger.Printf("missing SAN: %s\n", name)
+				return -1
+			}
+		}
 	}
 	lifetime := cert.notAfter.Sub(cert.notBefore)
 	if lifetime < time.Hour {
@@ -279,8 +293,9 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 	cm.rwMutex.RUnlock()
 	// First check if the current certificate needs to be renewed.
 	if cert != nil {
-		if interval := cert.timeUntilRenewal(cm.renewBefore); interval > 0 {
-			return interval
+		expires := cert.timeUntilRenewal(cm.renewBefore, cm.names, cm.logger)
+		if expires > 0 {
+			return expires
 		}
 	}
 	if cm.storer != nil {
@@ -300,8 +315,9 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 					cm.certificate.notAfter.Sub(cert.notAfter))
 			}
 			cm.rwMutex.Unlock()
-			if expire := cert.timeUntilRenewal(cm.renewBefore); expire > 0 {
-				return expire
+			exp := cert.timeUntilRenewal(cm.renewBefore, cm.names, cm.logger)
+			if exp > 0 {
+				return exp
 			}
 		}
 	}
@@ -309,7 +325,7 @@ func (cm *CertificateManager) checkRenew() time.Duration {
 		cm.logger.Println(err)
 		return jitteryHour()
 	}
-	expire := cm.certificate.timeUntilRenewal(cm.renewBefore)
+	expire := cm.certificate.timeUntilRenewal(cm.renewBefore, nil, cm.logger)
 	if expire < time.Hour {
 		expire = jitteryHour()
 	}
