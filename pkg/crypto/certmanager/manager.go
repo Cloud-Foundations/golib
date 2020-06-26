@@ -25,6 +25,8 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
+const defaultRsaKeySize = 2048
+
 var supportedChallengeTypes = map[string]struct{}{
 	"dns-01":  {},
 	"http-01": {},
@@ -55,7 +57,7 @@ func makeKeyECDSA() (crypto.Signer, error) {
 }
 
 func makeKeyRSA() (crypto.Signer, error) {
-	return rsa.GenerateKey(rand.Reader, 2048)
+	return rsa.GenerateKey(rand.Reader, defaultRsaKeySize)
 }
 
 func readCert(storer Storer) (*Certificate, error) {
