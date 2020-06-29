@@ -1,26 +1,26 @@
 #! /bin/bash --posix
 
 ### BEGIN INIT INFO
-# Provides:		acme-proxy
+# Provides:		certmanager
 # Required-Start:	$local_fs $network $syslog
 # Required-Stop:	$local_fs $network $syslog
 # Default-Start:	2 3 4 5
 # Default-Stop:		0 1 6
-# Short-Description:	ACME Proxy service
+# Short-Description:	Certmanager X.509 Web certificate generation service
 ### END INIT INFO
 
-# /etc/init.d/acme-proxy: start and stop the ACME Proxy service
+# /etc/init.d/certmanager: start and stop the certificate manager service
 
 . /lib/lsb/init-functions
 
 umask 022
 
-DAEMON='/usr/local/sbin/acme-proxy'
-LOOP_PIDFILE='/var/run/acme-proxy.loop.pid'
-PIDFILE='/var/run/acme-proxy.pid'
-USERNAME='acme-proxy'
+DAEMON='/usr/local/bin/certmanager'
+LOOP_PIDFILE='/var/run/certmanager.loop.pid'
+PIDFILE='/var/run/certmanager.pid'
+USERNAME='certmanager'
 
-[ -f /etc/default/acme-proxy ] && . /etc/default/acme-proxy
+[ -f /etc/default/certmanager ] && . /etc/default/certmanager
 
 test -x "$DAEMON" || exit 0
 
@@ -44,11 +44,11 @@ start_loop ()
 
 case "$1" in
   start)
-	log_daemon_msg "Starting acme-proxy daemon" "acme-proxy" || true
+	log_daemon_msg "Starting certmanager daemon" "certmanager" || true
 	(start_loop < /dev/null &> /dev/null &)
 	;;
   stop)
-	log_daemon_msg "Stopping acme-proxy daemon" "acme-proxy" || true
+	log_daemon_msg "Stopping certmanager daemon" "certmanager" || true
 	[ -s "$LOOP_PIDFILE" ] && kill -KILL $(cat "$LOOP_PIDFILE")
 	[ -s "$PIDFILE" ]      && kill -TERM $(cat "$PIDFILE")
 	rm -f "$LOOP_PIDFILE" "$PIDFILE"
@@ -65,7 +65,7 @@ case "$1" in
 	;;
 
   *)
-	log_action_msg "Usage: /etc/init.d/acme-proxy {start|stop|reload|force-reload|restart}" || true
+	log_action_msg "Usage: /etc/init.d/certmanager {start|stop|reload|force-reload|restart}" || true
 	exit 1
 esac
 

@@ -49,6 +49,7 @@ type CertificateManager struct {
 	challengeType  string
 	keyFilename    string
 	key            crypto.Signer
+	keyMaker       keyMakerFunc
 	locker         Locker
 	names          []string
 	renewBefore    float64
@@ -59,6 +60,8 @@ type CertificateManager struct {
 	rwMutex        sync.RWMutex // Protect everything below.
 	certificate    *Certificate
 }
+
+type keyMakerFunc func() (crypto.Signer, error)
 
 // Locker is an interface to a remote locking mechanism.
 type Locker interface {
@@ -110,14 +113,15 @@ type Storer interface {
 // The responder is used to respond to ACME challenges.
 // The Certificate Authority directory endpoint is specified by caDirectoryURL.
 // If this is the empty string, Let's Encrypt (Production) is used.
+// The keyType may be "EC" (default) or "RSA".
 // The logger is used for logging messages.
 // Background work will be scheduled to renew the certificate.
 func New(names []string, certFilename, keyFilename string, locker Locker,
 	challengeType string, responder Responder, storer Storer,
-	renewBefore float64, caDirectoryURL string,
+	renewBefore float64, caDirectoryURL, keyType string,
 	logger log.DebugLogger) (*CertificateManager, error) {
 	return newManager(names, certFilename, keyFilename, locker, challengeType,
-		responder, storer, renewBefore, caDirectoryURL, logger)
+		responder, storer, renewBefore, caDirectoryURL, keyType, logger)
 }
 
 // GetCertificate yields the most recently renewed certificate. The method

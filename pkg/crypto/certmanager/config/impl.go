@@ -64,7 +64,8 @@ func newManager(certFilename, keyFilename string, httpRedirectPort uint16,
 		storer = lockingStorer
 	}
 	cm, err := certmanager.New(config.DomainNames, certFilename, keyFilename,
-		locker, config.ChallengeType, responder, storer, 0.0, "", logger)
+		locker, config.ChallengeType, responder, storer, 0.0, "", config.KeyType,
+		logger)
 	if err != nil {
 		return nil, err
 	}
