@@ -151,6 +151,14 @@ func (cert *Certificate) parse() error {
 	return nil
 }
 
+// timeUntilRenewal returns the time until a certificate should be renewed.
+// Certificates will be renewed renewBefore * the certificate lifetime
+// (suggested value ~0.3). If the certificate lifetime (time from when the
+// certificate is valid until when it expires) is less than one hour it is
+// assumed to be approximately one hour (with jitter).
+// If the certificate is nil or does not contain any of the SANs listed in
+// requiredNames then a negative duration is returned, indicating the
+// certificate should be renewed immediately.
 func (cert *Certificate) timeUntilRenewal(renewBefore float64,
 	requiredNames []string, logger log.Logger) time.Duration {
 	if cert == nil {
