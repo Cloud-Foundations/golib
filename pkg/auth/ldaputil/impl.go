@@ -48,7 +48,7 @@ func checkLDAPUserPassword(u url.URL, bindDN string, bindPassword string,
 }
 
 func extractCNFromDNString(input []string) (output []string, err error) {
-	re := regexp.MustCompile("^cn=([^,]+),.*")
+	re := regexp.MustCompile("(?i)^cn=([^,]+),.*")
 	for _, dn := range input {
 		matches := re.FindStringSubmatch(dn)
 		if len(matches) == 2 {
