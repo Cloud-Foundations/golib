@@ -17,6 +17,7 @@ type UserInfo struct {
 	userSearchBaseDNs  []string
 	timeoutSecs        uint
 	rootCAs            *x509.CertPool
+	MemberAttribute    string
 	logger             log.DebugLogger
 }
 
@@ -32,4 +33,8 @@ func New(urlList []string, bindUsername string, bindPassword string,
 
 func (uinfo *UserInfo) GetUserGroups(username string) ([]string, error) {
 	return uinfo.getUserGroups(username)
+}
+
+func (uinfo *UserInfo) GetGroupUsers(groupName string) ([]string, error) {
+	return uinfo.getGroupUsers(groupName)
 }
