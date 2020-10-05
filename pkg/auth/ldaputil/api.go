@@ -25,6 +25,17 @@ func GetLDAPUserGroups(u url.URL, bindDN string, bindPassword string,
 		GroupSearchBaseDNs, GroupSearchFilter)
 }
 
+func GetLDAPGroupUsers(u url.URL, bindDN string, bindPassword string,
+	timeout time.Duration, rootCAs *x509.CertPool,
+	userAttribute string,
+	groupName string,
+	UserSearchBaseDNs []string,
+	GroupSearchBaseDNs []string) ([]string, error) {
+	return getLDAPGroupUsers(u, bindDN, bindPassword, timeout, rootCAs,
+		userAttribute, groupName,
+		UserSearchBaseDNs, GroupSearchBaseDNs)
+}
+
 func ParseLDAPURL(ldapUrl string) (*url.URL, error) {
 	return parseLDAPURL(ldapUrl)
 }

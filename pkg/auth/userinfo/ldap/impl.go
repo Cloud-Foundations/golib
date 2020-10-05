@@ -6,15 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/Cloud-Foundations/golib/pkg/auth/ldaputil"
+	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
 	dependencyLatency = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Name:       "cloudgate_ldap_userinfo_check_duration_seconds",
+			Name:       "ldap_userinfo_check_duration_seconds",
 			Help:       "LDAP Dependency latency",
 			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		},
@@ -22,13 +22,13 @@ var (
 	)
 	userinfoLDAPAttempt = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "cloudgate_ldap_userinfo_attempt_counter",
+			Name: "ldap_userinfo_attempt_counter",
 			Help: "Attempts to get userinfo from ldap",
 		},
 	)
 	userinfoLDAPSuccess = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Name: "cloudgate_ldap_userinfo_success_counter",
+			Name: "ldap_userinfo_success_counter",
 			Help: "Success count when getting userinfo from ldap",
 		},
 	)
@@ -55,6 +55,7 @@ func newUserInfo(urlList []string, bindUsername string, bindPassword string,
 		timeoutSecs:        timeoutSecs,
 		rootCAs:            rootCAs,
 		logger:             logger,
+		memberAttribute:    "sAMAccountName",
 	}
 	for _, stringURL := range urlList {
 		url, err := ldaputil.ParseLDAPURL(stringURL)
@@ -93,4 +94,34 @@ func (uinfo *UserInfo) getUserGroups(username string) ([]string, error) {
 	userinfoLDAPSuccess.Inc()
 	uinfo.logger.Debugf(2, "groups=%+v", groups)
 	return groups, nil
+}
+
+func (uinfo *UserInfo) getGroupUsers(groupName string) ([]string, error) {
+	ldapSuccess := false
+	var users []string
+	var err error
+	userinfoLDAPAttempt.Inc()
+	for _, ldapUrl := range uinfo.ldapURLs {
+		targetName := strings.ToLower(ldapUrl.Hostname())
+		startTime := time.Now()
+		users, err = ldaputil.GetLDAPGroupUsers(*ldapUrl,
+			uinfo.bindUsername, uinfo.bindPassword,
+			time.Second*time.Duration(uinfo.timeoutSecs), uinfo.rootCAs,
+			uinfo.memberAttribute,
+			groupName,
+			uinfo.userSearchBaseDNs,
+			uinfo.groupSearchBaseDNs)
+		if err != nil {
+			continue
+		}
+		dependencyLatency.WithLabelValues(targetName).Observe(time.Now().Sub(startTime).Seconds())
+		ldapSuccess = true
+		break
+	}
+	if !ldapSuccess {
+		return nil, fmt.Errorf("Could not contact any configured LDAP endpoint. Last Err: %s", err)
+	}
+	userinfoLDAPSuccess.Inc()
+	uinfo.logger.Debugf(2, "users=%+v", users)
+	return users, nil
 }
