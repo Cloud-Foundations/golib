@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,10 +157,14 @@ func handleSearchGroup(w ldap.ResponseWriter, m *ldap.Message) {
 	log.Printf("Request TimeLimit=%d", r.TimeLimit().Int())
 	e := ldap.NewSearchResultEntry("cn=group1, " + string(r.BaseObject()))
 	e.AddAttribute("cn", "group1")
+	e.AddAttribute("memberuid", "user1")
+	e.AddAttribute("memberUid", "user1")
 	w.Write(e)
-	e = ldap.NewSearchResultEntry("cn=group2, " + string(r.BaseObject()))
-	e.AddAttribute("cn", "group2")
-	w.Write(e)
+	if !strings.Contains(r.FilterString(), "group1") {
+		e = ldap.NewSearchResultEntry("cn=group2, " + string(r.BaseObject()))
+		e.AddAttribute("cn", "group2")
+		w.Write(e)
+	}
 	res := ldap.NewSearchResultDoneResponse(ldap.LDAPResultSuccess)
 	w.Write(res)
 }
@@ -320,6 +325,37 @@ func TestCheckLDAPGetLDAPUserGroupsSuccess(t *testing.T) {
 		if expectedGroup != userGroups[i] {
 			t.Fatal("expected groups do not match")
 		}
+	}
+}
+
+// This is a simple test that just checks the traversed paths
+// Need to expand to actually check for expanding the user path
+func TestCheckLDAPGetLDAPUserGroupsBase(t *testing.T) {
+	certPool := x509.NewCertPool()
+	ok := certPool.AppendCertsFromPEM([]byte(rootCAPem))
+	if !ok {
+		t.Fatal("cannot add certs to certpool")
+	}
+	ldapURL, err := ParseLDAPURL("ldaps://localhost:10636")
+	if err != nil {
+		t.Logf("Failed to parse url")
+		t.Fatal(err)
+	}
+	groupUsers, err := GetLDAPGroupUsers(*ldapURL, "username", "password",
+		time.Second*2, certPool,
+		"uid",
+		"group1",
+		[]string{"some user endpoint"},
+		[]string{"o=group,o=My Company,c=US"})
+	if err != nil {
+		t.Logf("Connect to server")
+		t.Fatal(err)
+	}
+	t.Logf("groupUsers=%s", groupUsers)
+	sort.Strings(groupUsers)
+	expectedGroupUsers := []string{"user1"}
+	if len(groupUsers) != len(expectedGroupUsers) {
+		t.Fatal("expected groups do not match")
 	}
 }
 

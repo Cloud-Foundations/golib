@@ -55,7 +55,7 @@ func newUserInfo(urlList []string, bindUsername string, bindPassword string,
 		timeoutSecs:        timeoutSecs,
 		rootCAs:            rootCAs,
 		logger:             logger,
-		MemberAttribute:    "sAMAccountName",
+		memberAttribute:    "sAMAccountName",
 	}
 	for _, stringURL := range urlList {
 		url, err := ldaputil.ParseLDAPURL(stringURL)
@@ -107,7 +107,7 @@ func (uinfo *UserInfo) getGroupUsers(groupName string) ([]string, error) {
 		users, err = ldaputil.GetLDAPGroupUsers(*ldapUrl,
 			uinfo.bindUsername, uinfo.bindPassword,
 			time.Second*time.Duration(uinfo.timeoutSecs), uinfo.rootCAs,
-			uinfo.MemberAttribute,
+			uinfo.memberAttribute,
 			groupName,
 			uinfo.userSearchBaseDNs,
 			uinfo.groupSearchBaseDNs)

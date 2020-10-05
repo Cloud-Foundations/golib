@@ -17,7 +17,7 @@ type UserInfo struct {
 	userSearchBaseDNs  []string
 	timeoutSecs        uint
 	rootCAs            *x509.CertPool
-	MemberAttribute    string
+	memberAttribute    string
 	logger             log.DebugLogger
 }
 
