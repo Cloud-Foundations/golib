@@ -215,6 +215,10 @@ func getGroupDNAndSimpleUsers(conn *ldap.Conn, GroupSearchBaseDNs []string,
 	return "", nil, nil
 }
 
+// 389DS page size default is 1024
+// AD implementations that cviecco has seen have 2000
+const groupUsersSearchPageSize = 1000
+
 func getGroupUsersRFC2307bis(conn *ldap.Conn, UserSearchBaseDNs []string,
 	GroupSearchBaseDNs []string,
 	//groupSearchFilter string,
@@ -234,7 +238,7 @@ func getGroupUsersRFC2307bis(conn *ldap.Conn, UserSearchBaseDNs []string,
 			ldap.ScopeWholeSubtree, ldap.NeverDerefAliases, 0, 0, false,
 			fmt.Sprintf("(memberOf=%s)", groupDN),
 			[]string{"cn", userAttribute}, nil)
-		sr, err := conn.Search(searchRequest)
+		sr, err := conn.SearchWithPaging(searchRequest, groupUsersSearchPageSize)
 		if err != nil {
 			return nil, fmt.Errorf("error on search request: %s", err)
 		}
