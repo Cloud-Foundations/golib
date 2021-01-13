@@ -123,6 +123,7 @@ func (ls *LockingStorer) unlock() error {
 		return fmt.Errorf("unable to remove LOCK label for SecretId: %s",
 			ls.secretId)
 	}
+	ls.lockVersion = nil
 	ls.logger.Printf("unlocked AWS Secrets Manager, SecretId: %s\n",
 		ls.secretId)
 	return nil
