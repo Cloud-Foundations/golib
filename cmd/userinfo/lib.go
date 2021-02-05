@@ -9,6 +9,8 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/auth/userinfo/gitdb"
 )
 
+// Get the database. If source is a directory, it specifies a local repository
+// else it a remote repository.
 func getDB(source string, logger log.DebugLogger) (*gitdb.UserInfo, error) {
 	var tmpdir string
 	fi, err := os.Stat(source)
