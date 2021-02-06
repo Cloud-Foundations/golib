@@ -19,6 +19,13 @@ type UserInfo struct {
 	usersPerGroup map[string]map[string]struct{} // K: groupname, V: usernames.
 }
 
+// New opens a *UserInfo database using Git as the backing store. It will
+// periodically pull from the remote repository specified by repositoryURL and
+// cache a local copy in the localRepositoryDir. If repositoryURL is empty then
+// only the local repository is used.
+// The specified branch is read to extract the database.
+// The databse is checked every checkInterval for updates.
+// Any problems with fetching or updating the database are sent to the logger.
 func New(repositoryURL, branch, localRepositoryDir string,
 	checkInterval time.Duration, logger log.DebugLogger) (
 	*UserInfo, error) {

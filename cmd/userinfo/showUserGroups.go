@@ -4,13 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"sort"
-	"time"
 
 	"github.com/Cloud-Foundations/Dominator/lib/log"
-	"github.com/Cloud-Foundations/golib/pkg/auth/userinfo/gitdb"
 )
 
 var divider = []byte("======================================================\n")
@@ -24,23 +21,11 @@ func showUserGroupsSubcommand(args []string, logger log.DebugLogger) error {
 
 func showUserGroups(writer io.Writer, source, username string,
 	logger log.DebugLogger) error {
-	var tmpdir string
-	fi, err := os.Stat(source)
-	if err == nil && fi.IsDir() {
-		tmpdir = source
-		source = ""
-	} else {
-		tmpdir, err = ioutil.TempDir("", "userinfo")
-		if err != nil {
-			return err
-		}
-		defer os.RemoveAll(tmpdir)
-	}
 	memoryLogger := newMemoryLogger()
 	if !*ignoreErrors {
 		logger = memoryLogger
 	}
-	db, err := gitdb.New(source, "", tmpdir, time.Hour, logger)
+	db, err := getDB(source, logger)
 	if err != nil {
 		return err
 	}
