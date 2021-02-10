@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
 	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
@@ -95,6 +96,21 @@ func (ls *loadStateType) loadDirectory(dirname string) error {
 		if !sort.StringsAreSorted(group.GroupMembers) {
 			ls.logger.Printf("%s/%s: GroupMembers are not sorted\n",
 				dirname, group.Name)
+		}
+		userMap := make(map[string]struct{}, len(group.UserMembers))
+		for index, rawUser := range group.UserMembers {
+			user := strings.ToLower(rawUser)
+			if user != rawUser {
+				ls.logger.Printf("%s/%s: mixed case user: %s\n",
+					dirname, group.Name, rawUser)
+			}
+			group.UserMembers[index] = user
+			if _, ok := userMap[user]; ok {
+				ls.logger.Printf("%s/%s: duplicate entry for user: %s\n",
+					dirname, group.Name, user)
+			} else {
+				userMap[user] = struct{}{}
+			}
 		}
 		if !sort.StringsAreSorted(group.UserMembers) {
 			ls.logger.Printf("%s/%s: UserMembers are not sorted\n",
@@ -202,6 +218,7 @@ func (uinfo *UserInfo) getGroups() ([]string, error) {
 }
 
 func (uinfo *UserInfo) getUserGroups(username string) ([]string, error) {
+	username = strings.ToLower(username)
 	uinfo.rwMutex.RLock()
 	groupsMap := uinfo.groupsPerUser[username]
 	uinfo.rwMutex.RUnlock()
@@ -266,6 +283,7 @@ func (uinfo *UserInfo) loadDatabase(dirname string) error {
 }
 
 func (uinfo *UserInfo) testUserInGroup(username, groupname string) bool {
+	username = strings.ToLower(username)
 	uinfo.rwMutex.RLock()
 	defer uinfo.rwMutex.RUnlock()
 	if groups, ok := uinfo.groupsPerUser[username]; !ok {
