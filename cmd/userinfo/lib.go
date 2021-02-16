@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/Cloud-Foundations/Dominator/lib/log"
 	"github.com/Cloud-Foundations/golib/pkg/auth/userinfo/gitdb"
+	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
 // Get the database. If source is a directory, it specifies a local repository
