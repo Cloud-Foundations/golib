@@ -3,7 +3,7 @@ package gitdb
 import (
 	"testing"
 
-	"github.com/Cloud-Foundations/Dominator/lib/log/testlogger"
+	"github.com/Cloud-Foundations/golib/pkg/log/testlogger"
 )
 
 func TestFlat(t *testing.T) {
