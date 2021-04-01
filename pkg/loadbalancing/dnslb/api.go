@@ -66,8 +66,8 @@ type Params struct {
 // RecordReadWriter implements a DNS record reader and writer. It is used to
 // plugin the underlying DNS provider.
 type RecordReadWriter interface {
-	ReadRecord(fqdn string) ([]string, error)
-	WriteRecord(fqdn string, ips []string, ttl time.Duration) error
+	ReadRecords(fqdn, recType string) ([]string, time.Duration, error)
+	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
 }
 
 // RegionFilter implements the Filter method, which is used to restrict DNS

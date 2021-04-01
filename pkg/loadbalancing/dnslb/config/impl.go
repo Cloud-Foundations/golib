@@ -2,52 +2,18 @@ package config
 
 import (
 	"errors"
-	"time"
 
-	"github.com/Cloud-Foundations/golib/pkg/awsutil/metadata"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb"
-	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/ec2"
-	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/route53"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
-type dnsConfigureFunc func(config *Config, params *dnslb.Params) error
-
-func awsRoute53Configure(config *Config, params *dnslb.Params) error {
-	if config.CheckInterval < 1 {
-		config.CheckInterval = time.Minute
-	}
-	var err error
-	params.RecordReadWriter, err = route53.New(config.Route53HostedZoneId,
-		params.Logger)
-	if err != nil {
-		return err
-	}
-	if config.AllRegions {
-		if !config.Preserve {
-			return errors.New("cannot destroy instances in other regions")
-		}
-		return nil
-	}
-	metadataClient, err := metadata.GetMetadataClient()
-	if err != nil {
-		return err
-	}
-	instanceHandler, err := ec2.New(metadataClient, params.Logger)
-	if err != nil {
-		return err
-	}
-	params.RegionFilter = instanceHandler
-	if !config.Preserve {
-		params.Destroyer = instanceHandler
-	}
-	return nil
-}
+type dnsConfigureFunc func(config *Config, params *dnslb.Params,
+	region string) error
 
 func getDnsConfigureFuncs(config Config) ([]dnsConfigureFunc, error) {
 	funcs := make([]dnsConfigureFunc, 0)
 	if config.Route53HostedZoneId != "" {
-		funcs = append(funcs, awsRoute53Configure)
+		funcs = append(funcs, awsConfigure)
 	}
 	if len(funcs) > 1 {
 		return nil, errors.New("multiple DNS providers specified")
@@ -55,9 +21,9 @@ func getDnsConfigureFuncs(config Config) ([]dnsConfigureFunc, error) {
 	return funcs, nil
 }
 
-func newLoadBalancer(config Config,
-	logger log.DebugLogger) (*dnslb.LoadBalancer, error) {
-	funcs, err := getDnsConfigureFuncs(config)
+func makeDnslbParams(config *Config, region string, logger log.DebugLogger) (
+	*dnslb.Params, error) {
+	funcs, err := getDnsConfigureFuncs(*config)
 	if err != nil {
 		return nil, err
 	}
@@ -65,10 +31,19 @@ func newLoadBalancer(config Config,
 		return nil, errors.New("no DNS zone provider specified")
 	}
 	params := dnslb.Params{Logger: logger}
-	if err := funcs[0](&config, &params); err != nil {
+	if err := funcs[0](config, &params, region); err != nil {
 		return nil, err
 	}
-	return dnslb.New(config.Config, params)
+	return &params, nil
+}
+
+func newLoadBalancer(config Config,
+	logger log.DebugLogger) (*dnslb.LoadBalancer, error) {
+	params, err := makeDnslbParams(&config, "", logger)
+	if err != nil {
+		return nil, err
+	}
+	return dnslb.New(config.Config, *params)
 }
 
 func (c Config) check() (bool, error) {

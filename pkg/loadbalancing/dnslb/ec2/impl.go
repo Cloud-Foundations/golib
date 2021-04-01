@@ -1,33 +1,19 @@
 package ec2
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
 type ipMap map[string]struct{}
 
-func newInstanceHandler(metadataClient *ec2metadata.EC2Metadata,
+func newInstanceHandler(awsSession *session.Session, region string,
 	logger log.DebugLogger) (*InstanceHandler, error) {
-	region, err := metadataClient.Region()
-	if err != nil {
-		return nil, err
-	}
-	awsSession, err := session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error creating session: %s", err)
-	}
-	if awsSession == nil {
-		return nil, errors.New("awsSession == nil")
-	}
+	awsSession = awsSession.Copy(&aws.Config{Region: aws.String(region)})
 	return &InstanceHandler{
 		awsService:   ec2.New(awsSession),
 		logger:       logger,

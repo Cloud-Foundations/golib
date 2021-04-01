@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
@@ -15,9 +15,9 @@ type InstanceHandler struct {
 	ipToInstance map[string]*string // Key: IP, value instance ID.
 }
 
-func New(metadataClient *ec2metadata.EC2Metadata,
+func New(awsSession *session.Session, region string,
 	logger log.DebugLogger) (*InstanceHandler, error) {
-	return newInstanceHandler(metadataClient, logger)
+	return newInstanceHandler(awsSession, region, logger)
 }
 
 func (h *InstanceHandler) Destroy(ips map[string]struct{}) error {

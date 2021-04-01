@@ -126,7 +126,7 @@ func (lb *LoadBalancer) checkLoop() {
 }
 
 func (lb *LoadBalancer) check() error {
-	checkList, err := lb.p.RecordReadWriter.ReadRecord(lb.config.FQDN)
+	checkList, _, err := lb.p.RecordReadWriter.ReadRecords(lb.config.FQDN, "A")
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (lb *LoadBalancer) check() error {
 	if err := lb.destroy(removeMap); err != nil {
 		return err
 	}
-	oldList, err := lb.p.RecordReadWriter.ReadRecord(lb.config.FQDN)
+	oldList, _, err := lb.p.RecordReadWriter.ReadRecords(lb.config.FQDN, "A")
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (lb *LoadBalancer) check() error {
 		return nil
 	}
 	lb.p.Logger.Printf("updating DNS for: %s: %v\n", lb.config.FQDN, newList)
-	return lb.p.RecordReadWriter.WriteRecord(lb.config.FQDN, newList,
+	return lb.p.RecordReadWriter.WriteRecords(lb.config.FQDN, "A", newList,
 		lb.config.CheckInterval)
 }
 
