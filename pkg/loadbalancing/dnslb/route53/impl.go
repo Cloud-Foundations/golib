@@ -38,6 +38,37 @@ func stripQuotes(value string) string {
 	return value
 }
 
+func (rrw *RecordReadWriter) deleteRecords(fqdn, recType string) error {
+	if fqdn[len(fqdn)-1] != '.' {
+		fqdn += "."
+	}
+	output, err := rrw.awsService.ListResourceRecordSets(
+		&route53.ListResourceRecordSetsInput{
+			HostedZoneId:    rrw.hostedZoneId,
+			StartRecordName: aws.String(fqdn),
+			StartRecordType: aws.String(recType),
+		})
+	if err != nil {
+		return err
+	}
+	var changes []*route53.Change
+	for _, recordSet := range output.ResourceRecordSets {
+		name := stripQuotes(*recordSet.Name)
+		if name != fqdn || *recordSet.Type != recType {
+			continue
+		}
+		changes = append(changes, &route53.Change{
+			Action:            aws.String("DELETE"),
+			ResourceRecordSet: recordSet})
+	}
+	input := &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch:  &route53.ChangeBatch{Changes: changes},
+		HostedZoneId: rrw.hostedZoneId,
+	}
+	_, err = rrw.awsService.ChangeResourceRecordSets(input)
+	return err
+}
+
 func (rrw *RecordReadWriter) readRecords(fqdn string, recType string) (
 	[]string, time.Duration, error) {
 	if fqdn[len(fqdn)-1] != '.' {
