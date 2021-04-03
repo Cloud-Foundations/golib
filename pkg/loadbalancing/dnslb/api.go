@@ -66,6 +66,7 @@ type Params struct {
 // RecordReadWriter implements a DNS record reader and writer. It is used to
 // plugin the underlying DNS provider.
 type RecordReadWriter interface {
+	DeleteRecords(fqdn, recType string) error
 	ReadRecords(fqdn, recType string) ([]string, time.Duration, error)
 	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
 }
@@ -82,4 +83,13 @@ type RegionFilter interface {
 // for the peer servers and to self register.
 func New(config Config, params Params) (*LoadBalancer, error) {
 	return newLoadBalancer(config, params)
+}
+
+// RollingReplace will use the provided configuration and will roll through all
+// server instances in the specified region triggering replacements by removing
+// each server from DNS, destroying it and waiting for (some other mechanism) to
+// create a working replacement before continuing to the next server.
+func RollingReplace(config Config, params Params, region string,
+	logger log.DebugLogger) error {
+	return rollingReplace(config, params, region, logger)
 }
