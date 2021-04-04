@@ -30,3 +30,12 @@ func New(config Config, logger log.DebugLogger) (*dnslb.LoadBalancer, error) {
 func (c Config) Check() (bool, error) {
 	return c.check()
 }
+
+// RollingReplace will use the provided configuration and will roll through all
+// server instances in the specified region triggering replacements by removing
+// each server from DNS, destroying it and waiting for (some other mechanism) to
+// create a working replacement before continuing to the next server.
+func RollingReplace(config Config, region string,
+	logger log.DebugLogger) error {
+	return rollingReplace(config, region, logger)
+}
