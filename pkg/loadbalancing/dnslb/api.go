@@ -85,6 +85,14 @@ func New(config Config, params Params) (*LoadBalancer, error) {
 	return newLoadBalancer(config, params)
 }
 
+// Block will block a server instance with the specified IP address from
+// adding itself to DNS for the specified time or until a message is received on
+// cancelChannel.
+func Block(config Config, params Params, ip string, duration time.Duration,
+	cancelChannel <-chan struct{}, logger log.DebugLogger) error {
+	return block(config, params, ip, duration, cancelChannel, logger)
+}
+
 // RollingReplace will use the provided configuration and will roll through all
 // server instances in the specified region triggering replacements by removing
 // each server from DNS, destroying it and waiting for (some other mechanism) to
