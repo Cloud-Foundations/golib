@@ -5,6 +5,8 @@ a DNS load balancer based on configuration data.
 package config
 
 import (
+	"time"
+
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
@@ -29,6 +31,14 @@ func New(config Config, logger log.DebugLogger) (*dnslb.LoadBalancer, error) {
 // is malformed (i.e. multiple DNS back-end providers specified).
 func (c Config) Check() (bool, error) {
 	return c.check()
+}
+
+// Block will block a server instance with the specified IP address from
+// adding itself to DNS for the specified time or until a message is received on
+// cancelChannel.
+func Block(config Config, ip string, duration time.Duration,
+	cancelChannel <-chan struct{}, logger log.DebugLogger) error {
+	return block(config, ip, duration, cancelChannel, logger)
 }
 
 // RollingReplace will use the provided configuration and will roll through all
