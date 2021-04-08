@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
 	"github.com/Cloud-Foundations/Dominator/lib/flags/commands"
@@ -16,6 +17,8 @@ import (
 )
 
 var (
+	blockDuration = flag.Duration("blockDuration", time.Minute*15,
+		"Duration to block")
 	configFile = flag.String("configFile", "",
 		"Name of file containing configuration")
 
@@ -38,6 +41,7 @@ func printUsage() {
 var subcommands = []commands.Command{
 	{"rolling-replace", "region...", 1, 3,
 		rollingReplaceSubcommand},
+	{"block", "IP", 1, 1, blockSubcommand},
 }
 
 func doMain() int {
