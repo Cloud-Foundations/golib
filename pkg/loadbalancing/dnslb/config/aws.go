@@ -10,6 +10,7 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/ec2"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/route53"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
@@ -46,7 +47,18 @@ func awsCreateSession(config *Config) (*session.Session, error) {
 	if awsSession == nil {
 		return nil, errors.New("awsSession == nil")
 	}
-	return awsSession, nil
+	if config.AwsAssumeRoleArn == "" {
+		return awsSession, nil
+	}
+	creds := stscreds.NewCredentials(awsSession, config.AwsAssumeRoleArn)
+	assumedSession, err := session.NewSession(&aws.Config{Credentials: creds})
+	if err != nil {
+		return nil, fmt.Errorf("error creating assumed role session: %s", err)
+	}
+	if assumedSession == nil {
+		return nil, errors.New("assumedSession == nil")
+	}
+	return assumedSession, nil
 }
 
 func awsEC2Configure(awsSession *session.Session, config *Config,

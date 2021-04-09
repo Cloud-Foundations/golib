@@ -11,6 +11,7 @@ import (
 
 type Config struct {
 	AllRegions          bool   `yaml:"all_regions"`
+	AwsAssumeRoleArn    string `yaml:"aws_assume_role_arn"`
 	AwsProfile          string `yaml:"aws_profile"`
 	dnslb.Config        `yaml:",inline"`
 	Preserve            bool   `yaml:"preserve"`
