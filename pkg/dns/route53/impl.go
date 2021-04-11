@@ -38,6 +38,31 @@ func stripQuotes(value string) string {
 	return value
 }
 
+func waitForChange(awsService *route53.Route53, id *string,
+	logger log.DebugLogger) error {
+	timer := time.NewTimer(time.Minute * 2)
+	errorChannel := make(chan error, 1)
+	go func() {
+		errorChannel <- awsService.WaitUntilResourceRecordSetsChanged(
+			&route53.GetChangeInput{Id: id})
+	}()
+	select {
+	case <-timer.C:
+		output, err := awsService.GetChange(&route53.GetChangeInput{Id: id})
+		if err != nil {
+			logger.Printf("timed out waiting for change: %s, hoping for the best, error from GetChange(): %s\n",
+				*id, err)
+			return nil
+		}
+		logger.Printf(
+			"timed out waiting for change: %s, hoping for the best, status: %s\n",
+			id, *output.ChangeInfo.Status)
+		return nil
+	case err := <-errorChannel:
+		return err
+	}
+}
+
 func (rrw *RecordReadWriter) deleteRecords(fqdn, recType string) error {
 	if fqdn[len(fqdn)-1] != '.' {
 		fqdn += "."
@@ -127,6 +152,16 @@ func (rrw *RecordReadWriter) writeRecords(fqdn, recType string,
 		},
 		HostedZoneId: rrw.hostedZoneId,
 	}
-	_, err := rrw.awsService.ChangeResourceRecordSets(input)
+	output, err := rrw.awsService.ChangeResourceRecordSets(input)
+	if err != nil {
+		return err
+	}
+	rrw.logger.Debugf(1, "waiting for change: %s to complete\n",
+		*output.ChangeInfo.Id)
+	err = waitForChange(rrw.awsService, output.ChangeInfo.Id, rrw.logger)
+	if err != nil {
+		return err
+	}
+	rrw.logger.Debugf(1, "change: %s completed\n", *output.ChangeInfo.Id)
 	return err
 }
