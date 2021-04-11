@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 )
 
@@ -19,16 +20,17 @@ type RecordReadWriter struct {
 
 // New creates a *RecordReadWriter.
 // The logger is used for logging messages.
-func New(hostedZoneId string,
+func New(awsSession *session.Session, hostedZoneId string,
 	logger log.DebugLogger) (*RecordReadWriter, error) {
-	return newRecordReadWriter(hostedZoneId, logger)
+	return newRecordReadWriter(awsSession, hostedZoneId, logger)
 }
 
-func (rrw *RecordReadWriter) ReadRecord(fqdn string) ([]string, error) {
-	return rrw.readRecord(fqdn)
+func (rrw *RecordReadWriter) ReadRecords(fqdn, recType string) (
+	[]string, time.Duration, error) {
+	return rrw.readRecords(fqdn, recType)
 }
 
-func (rrw *RecordReadWriter) WriteRecord(fqdn string, ips []string,
-	ttl time.Duration) error {
-	return rrw.writeRecord(fqdn, ips, ttl)
+func (rrw *RecordReadWriter) WriteRecords(fqdn, recType string,
+	records []string, ttl time.Duration) error {
+	return rrw.writeRecords(fqdn, recType, records, ttl)
 }
