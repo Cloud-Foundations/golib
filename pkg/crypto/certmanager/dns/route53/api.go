@@ -4,14 +4,19 @@ Package route53 implements a dns-01 ACME protocol responder using AWS Route 53.
 package route53
 
 import (
+	"time"
+
 	"github.com/Cloud-Foundations/golib/pkg/log"
-	"github.com/aws/aws-sdk-go/service/route53"
 )
 
+type recordDeleteWriter interface {
+	DeleteRecords(fqdn, recType string) error
+	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
+}
+
 type Responder struct {
-	awsService   *route53.Route53
-	hostedZoneId *string
-	logger       log.DebugLogger
+	rdw    recordDeleteWriter
+	logger log.DebugLogger
 	// Mutable data follow.
 	records map[string]string
 }
