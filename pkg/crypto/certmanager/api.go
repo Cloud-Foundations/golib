@@ -61,6 +61,12 @@ type CertificateManager struct {
 	certificate    *Certificate
 }
 
+// DnsRecordDeleteWriter is an interface to a DNS record manager.
+type DnsRecordDeleteWriter interface {
+	DeleteRecords(fqdn, recType string) error
+	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
+}
+
 type keyMakerFunc func() (crypto.Signer, error)
 
 // Locker is an interface to a remote locking mechanism.
@@ -135,4 +141,10 @@ func (cm *CertificateManager) GetCertificate(hello *tls.ClientHelloInfo) (
 // are sent.
 func (cm *CertificateManager) GetWriteNotifier() <-chan struct{} {
 	return cm.writeNotifier
+}
+
+// MakeDnsResponder will create a dns-01 Responder from a DNS record manager.
+func MakeDnsResponder(rdw DnsRecordDeleteWriter,
+	logger log.DebugLogger) (Responder, error) {
+	return makeDnsResponder(rdw, logger)
 }
