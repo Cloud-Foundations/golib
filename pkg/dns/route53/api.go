@@ -36,5 +36,5 @@ func (rrw *RecordReadWriter) ReadRecords(fqdn, recType string) (
 
 func (rrw *RecordReadWriter) WriteRecords(fqdn, recType string,
 	records []string, ttl time.Duration) error {
-	return rrw.writeRecords(fqdn, recType, records, ttl)
+	return rrw.writeRecords(fqdn, recType, records, ttl, true)
 }
