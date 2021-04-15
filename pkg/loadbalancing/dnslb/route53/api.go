@@ -25,6 +25,10 @@ func New(awsSession *session.Session, hostedZoneId string,
 	return newRecordReadWriter(awsSession, hostedZoneId, logger)
 }
 
+func (rrw *RecordReadWriter) DeleteRecords(fqdn, recType string) error {
+	return rrw.deleteRecords(fqdn, recType)
+}
+
 func (rrw *RecordReadWriter) ReadRecords(fqdn, recType string) (
 	[]string, time.Duration, error) {
 	return rrw.readRecords(fqdn, recType)

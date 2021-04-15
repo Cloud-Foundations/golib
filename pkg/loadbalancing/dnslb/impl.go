@@ -185,8 +185,17 @@ func (lb *LoadBalancer) check() error {
 		}
 	}
 	if !foundMyself {
-		newList = append(newList, lb.myIP)
-		lb.p.Logger.Printf("adding my IP (%s) to DNS\n", lb.myIP)
+		if blockedFor, err := lb.checkBlocked(lb.myIP); err != nil {
+			lb.p.Logger.Println(err)
+			lb.p.Logger.Printf("adding my IP (%s) to DNS\n", lb.myIP)
+			newList = append(newList, lb.myIP)
+		} else if blockedFor > 0 {
+			lb.p.Logger.Printf("blocked adding my IP (%s) to DNS for: %s\n",
+				lb.myIP, blockedFor)
+		} else {
+			lb.p.Logger.Printf("adding my IP (%s) to DNS\n", lb.myIP)
+			newList = append(newList, lb.myIP)
+		}
 	}
 	noChanges := true
 	if len(newList) != len(oldMap) {
