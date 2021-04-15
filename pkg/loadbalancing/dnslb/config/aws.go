@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/awsutil/metadata"
+	"github.com/Cloud-Foundations/golib/pkg/dns/route53"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/ec2"
-	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/route53"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
