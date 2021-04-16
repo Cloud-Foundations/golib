@@ -68,7 +68,8 @@ type Params struct {
 type RecordReadWriter interface {
 	DeleteRecords(fqdn, recType string) error
 	ReadRecords(fqdn, recType string) ([]string, time.Duration, error)
-	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
+	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration,
+		wait bool) error
 }
 
 // RegionFilter implements the Filter method, which is used to restrict DNS

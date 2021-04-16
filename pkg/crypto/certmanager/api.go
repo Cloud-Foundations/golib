@@ -64,7 +64,8 @@ type CertificateManager struct {
 // DnsRecordDeleteWriter is an interface to a DNS record manager.
 type DnsRecordDeleteWriter interface {
 	DeleteRecords(fqdn, recType string) error
-	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
+	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration,
+		wait bool) error
 }
 
 type keyMakerFunc func() (crypto.Signer, error)

@@ -50,7 +50,7 @@ func (r *dnsResponder) Respond(key, value string) error {
 		return nil
 	}
 	r.logger.Debugf(1, "publishing %s TXT=\"%s\"\n", key, value)
-	err := r.rdw.WriteRecords(key, "TXT", []string{value}, time.Second*15)
+	err := r.rdw.WriteRecords(key, "TXT", []string{value}, time.Second*15, true)
 	if err != nil {
 		return err
 	}
