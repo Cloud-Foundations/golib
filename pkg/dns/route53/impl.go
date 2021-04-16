@@ -165,5 +165,5 @@ func (rrw *RecordReadWriter) writeRecords(fqdn, recType string,
 		}
 		rrw.logger.Debugf(1, "change: %s completed\n", *output.ChangeInfo.Id)
 	}
-	return err
+	return nil
 }
