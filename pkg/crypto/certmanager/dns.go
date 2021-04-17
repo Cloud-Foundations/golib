@@ -4,11 +4,12 @@ import (
 	"golang.org/x/crypto/acme"
 	"time"
 
+	"github.com/Cloud-Foundations/golib/pkg/dns"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
 type dnsResponder struct {
-	rdw    DnsRecordDeleteWriter
+	rdw    dns.RecordDeleteWriter
 	logger log.DebugLogger
 	// Mutable data follow.
 	records map[string]string
@@ -23,7 +24,7 @@ func (cm *CertificateManager) respondDNS(domain string,
 	return cm.responder.Respond("_acme-challenge."+domain, response)
 }
 
-func makeDnsResponder(rdw DnsRecordDeleteWriter,
+func makeDnsResponder(rdw dns.RecordDeleteWriter,
 	logger log.DebugLogger) (Responder, error) {
 	return &dnsResponder{
 		rdw:     rdw,

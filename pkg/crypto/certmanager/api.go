@@ -27,6 +27,7 @@ import (
 
 	"golang.org/x/crypto/acme"
 
+	"github.com/Cloud-Foundations/golib/pkg/dns"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
@@ -59,13 +60,6 @@ type CertificateManager struct {
 	writeNotifier  chan struct{}
 	rwMutex        sync.RWMutex // Protect everything below.
 	certificate    *Certificate
-}
-
-// DnsRecordDeleteWriter is an interface to a DNS record manager.
-type DnsRecordDeleteWriter interface {
-	DeleteRecords(fqdn, recType string) error
-	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration,
-		wait bool) error
 }
 
 type keyMakerFunc func() (crypto.Signer, error)
@@ -145,7 +139,7 @@ func (cm *CertificateManager) GetWriteNotifier() <-chan struct{} {
 }
 
 // MakeDnsResponder will create a dns-01 Responder from a DNS record manager.
-func MakeDnsResponder(rdw DnsRecordDeleteWriter,
+func MakeDnsResponder(rdw dns.RecordDeleteWriter,
 	logger log.DebugLogger) (Responder, error) {
 	return makeDnsResponder(rdw, logger)
 }

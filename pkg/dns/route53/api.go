@@ -1,5 +1,5 @@
 /*
-Package route53 implements a simple DNS A record reader and writer using AWS
+Package route53 implements a simple DNS record reader and writer using AWS
 Route 53.
 */
 package route53
@@ -7,6 +7,7 @@ package route53
 import (
 	"time"
 
+	"github.com/Cloud-Foundations/golib/pkg/dns"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -37,4 +38,9 @@ func (rrw *RecordReadWriter) ReadRecords(fqdn, recType string) (
 func (rrw *RecordReadWriter) WriteRecords(fqdn, recType string,
 	records []string, ttl time.Duration, wait bool) error {
 	return rrw.writeRecords(fqdn, recType, records, ttl, wait)
+}
+
+// Put the compile-time interface check next to the implementation.
+func interfaceTest() {
+	_ = dns.RecordManager(&RecordReadWriter{})
 }
