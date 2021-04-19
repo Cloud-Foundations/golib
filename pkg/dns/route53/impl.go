@@ -126,7 +126,7 @@ func (rrw *RecordReadWriter) readRecords(fqdn string, recType string) (
 }
 
 func (rrw *RecordReadWriter) writeRecords(fqdn, recType string,
-	records []string, ttl time.Duration) error {
+	records []string, ttl time.Duration, wait bool) error {
 	if fqdn[len(fqdn)-1] != '.' {
 		fqdn += "."
 	}
@@ -156,12 +156,14 @@ func (rrw *RecordReadWriter) writeRecords(fqdn, recType string,
 	if err != nil {
 		return err
 	}
-	rrw.logger.Debugf(1, "waiting for change: %s to complete\n",
-		*output.ChangeInfo.Id)
-	err = waitForChange(rrw.awsService, output.ChangeInfo.Id, rrw.logger)
-	if err != nil {
-		return err
+	if wait {
+		rrw.logger.Debugf(1, "waiting for change: %s to complete\n",
+			*output.ChangeInfo.Id)
+		err = waitForChange(rrw.awsService, output.ChangeInfo.Id, rrw.logger)
+		if err != nil {
+			return err
+		}
+		rrw.logger.Debugf(1, "change: %s completed\n", *output.ChangeInfo.Id)
 	}
-	rrw.logger.Debugf(1, "change: %s completed\n", *output.ChangeInfo.Id)
-	return err
+	return nil
 }

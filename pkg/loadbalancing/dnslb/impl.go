@@ -214,7 +214,7 @@ func (lb *LoadBalancer) check() error {
 	}
 	lb.p.Logger.Printf("updating DNS for: %s: %v\n", lb.config.FQDN, newList)
 	return lb.p.RecordReadWriter.WriteRecords(lb.config.FQDN, "A", newList,
-		lb.config.CheckInterval)
+		lb.config.CheckInterval, false)
 }
 
 // destroy will attempt to destroy bad instances. If no instance has exceeded

@@ -134,7 +134,7 @@ func (lb *LoadBalancer) block(myId, ip string, ttl time.Duration) error {
 		"OwnerId="+myId,
 		"OwnerExpires="+time.Now().Add(ttl*5).Format(time.RFC3339))
 	rrw := lb.p.RecordReadWriter
-	if err := rrw.WriteRecords(fqdn, "TXT", txts, ttl); err != nil {
+	if err := rrw.WriteRecords(fqdn, "TXT", txts, ttl, false); err != nil {
 		return fmt.Errorf("error writing: %s: TXT=%v", fqdn, txts)
 	}
 	if ip == "" {
@@ -234,7 +234,7 @@ func (lb *LoadBalancer) replaceOne(myId, ip string, ttl time.Duration,
 		}
 	}
 	err = lb.p.RecordReadWriter.WriteRecords(lb.config.FQDN, "A", newList,
-		newTtl)
+		newTtl, true)
 	if err != nil {
 		return err
 	}

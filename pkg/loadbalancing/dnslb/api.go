@@ -31,6 +31,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/Cloud-Foundations/golib/pkg/dns"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
@@ -59,16 +60,8 @@ type LoadBalancer struct {
 type Params struct {
 	Destroyer        Destroyer
 	Logger           log.DebugLogger
-	RecordReadWriter RecordReadWriter
+	RecordReadWriter dns.RecordManager
 	RegionFilter     RegionFilter
-}
-
-// RecordReadWriter implements a DNS record reader and writer. It is used to
-// plugin the underlying DNS provider.
-type RecordReadWriter interface {
-	DeleteRecords(fqdn, recType string) error
-	ReadRecords(fqdn, recType string) ([]string, time.Duration, error)
-	WriteRecords(fqdn, recType string, recs []string, ttl time.Duration) error
 }
 
 // RegionFilter implements the Filter method, which is used to restrict DNS
