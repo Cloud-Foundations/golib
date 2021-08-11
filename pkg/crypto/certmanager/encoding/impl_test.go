@@ -1,4 +1,4 @@
-package awssecretsmanager
+package encoding
 
 import (
 	"testing"
