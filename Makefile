@@ -11,6 +11,7 @@ get-deps:
 	go get -t ./...
 
 update-deps:
+	go get -u ./...
 	go mod tidy
 
 test:
