@@ -10,6 +10,9 @@ format-imports:
 get-deps:
 	go get -t ./...
 
+update-deps:
+	go mod tidy
+
 test:
 	@find * -name '*_test.go' |\
 	sed -e 's@^@github.com/Cloud-Foundations/golib/@' -e 's@/[^/]*$$@@' |\
