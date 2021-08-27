@@ -137,7 +137,7 @@ func (ls *loadStateType) loadDirectory(dirname string) error {
 					}
 				}
 			} else {
-				ls.logger.Printf("%s: %s group: \"%s\" already defined",
+				ls.logger.Printf("%s: group: \"%s\" already defined",
 					dirname, group.Name)
 			}
 		} else {
