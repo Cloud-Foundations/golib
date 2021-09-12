@@ -6,12 +6,19 @@ import (
 
 // AuthInfo contains authentication information.
 type AuthInfo struct {
+	AwsRole          *AwsRole
 	Groups           []string
 	PermittedMethods []string
 	Username         string
 	mutex            sync.Mutex // Protect everything below.
 	groups           map[string]struct{}
 	permittedMethods map[string]struct{}
+}
+
+type AwsRole struct {
+	AccountId string
+	ARN       string
+	Name      string
 }
 
 // ListToMap is a convenience function to convert a slice of strings to a map
