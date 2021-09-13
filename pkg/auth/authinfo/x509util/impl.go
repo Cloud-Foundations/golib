@@ -11,6 +11,11 @@ import (
 )
 
 func getAuthInfo(cert *x509.Certificate) (*authinfo.AuthInfo, error) {
+	if role, err := getAwsRole(cert); err != nil {
+		return nil, err
+	} else if role != nil {
+		return &authinfo.AuthInfo{AwsRole: role}, nil
+	}
 	ai := &authinfo.AuthInfo{Username: cert.Subject.CommonName}
 	groups, err := getList(cert, constants.GroupListOID)
 	if err != nil {
@@ -28,6 +33,27 @@ func getAuthInfo(cert *x509.Certificate) (*authinfo.AuthInfo, error) {
 	}
 	ai.PermittedMethods = authinfo.MapToList(methods)
 	return ai, nil
+}
+
+func getAwsRole(cert *x509.Certificate) (*authinfo.AwsRole, error) {
+	for _, uri := range cert.URIs {
+		if uri.Scheme != "arn" || !strings.HasPrefix(uri.Opaque, "aws:iam::") {
+			continue
+		}
+		split := strings.Split(uri.Opaque, ":")
+		if len(split) != 5 {
+			return nil, fmt.Errorf("malformed ARN: %s", uri)
+		}
+		if !strings.HasPrefix(split[4], "role/") {
+			return nil, fmt.Errorf("malformed role in ARN: %s", uri)
+		}
+		return &authinfo.AwsRole{
+			AccountId: split[3],
+			ARN:       uri.String(),
+			Name:      split[4][5:],
+		}, nil
+	}
+	return nil, nil
 }
 
 func getList(cert *x509.Certificate, oid string) (map[string]struct{}, error) {
