@@ -51,7 +51,16 @@ func showCert(filename string) {
 		fmt.Fprintln(os.Stderr, err)
 		return
 	}
-	fmt.Printf("  Issued to: %s\n", authInfo.Username)
+	if authInfo.Username != "" {
+		fmt.Printf("  Issued to user: %s\n", authInfo.Username)
+	} else if authInfo.AwsRole != nil {
+		fmt.Printf("  Issued to AWS role: %s in account: %s (ARN=%s)\n",
+			authInfo.AwsRole.Name, authInfo.AwsRole.AccountId,
+			authInfo.AwsRole.ARN)
+	} else {
+		fmt.Printf("  Issued to unknown principal: %s\n",
+			cert.Subject.CommonName)
+	}
 	if len(authInfo.PermittedMethods) > 0 {
 		fmt.Println("  Permitted methods:")
 		showList(authInfo.PermittedMethods)
