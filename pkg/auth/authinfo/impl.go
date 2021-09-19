@@ -1,6 +1,27 @@
 package authinfo
 
-import "sort"
+import (
+	"context"
+	"sort"
+)
+
+type contextKey int
+
+var authContextKey = new(contextKey)
+
+func contextWithAuthInfo(ctx context.Context,
+	authInfo AuthInfo) context.Context {
+	return context.WithValue(ctx, authContextKey, authInfo)
+}
+
+func getAuthInfoFromContext(ctx context.Context) *AuthInfo {
+	if val := ctx.Value(authContextKey); val != nil {
+		if authInfo, ok := val.(AuthInfo); ok {
+			return &authInfo
+		}
+	}
+	return nil
+}
 
 func listToMap(list []string) map[string]struct{} {
 	mapList := make(map[string]struct{}, len(list))
