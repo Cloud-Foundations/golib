@@ -1,6 +1,7 @@
 package authinfo
 
 import (
+	"context"
 	"sync"
 )
 
@@ -19,6 +20,19 @@ type AwsRole struct {
 	AccountId string
 	ARN       string
 	Name      string
+}
+
+// ContextWithAuthInfo returns a copy of a context with authentication
+// information added.
+func ContextWithAuthInfo(ctx context.Context,
+	authInfo AuthInfo) context.Context {
+	return contextWithAuthInfo(ctx, authInfo)
+}
+
+// GetAuthInfoFromContext will return authentication information from a
+// context, if available.
+func GetAuthInfoFromContext(ctx context.Context) *AuthInfo {
+	return getAuthInfoFromContext(ctx)
 }
 
 // ListToMap is a convenience function to convert a slice of strings to a map
