@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -411,6 +412,7 @@ func (h *authNHandler) oauth2RedirectPathHandler(w http.ResponseWriter,
 		return
 	}
 	userInfo.Username = getUsernameFromUserinfo(userInfo)
+	sort.Strings(userInfo.Groups)
 	err = h.setAndStoreAuthCookie(w, r, &userInfo,
 		time.Now().Add(authNCookieExpirationDuration))
 	if err != nil {

@@ -1,6 +1,7 @@
 package constants
 
 const (
+	OpenIDCTestStatusPort = 6922
 	CertmanagerPortNumber = 6940
 	AcmeProxyPortNumber   = 6941
 
