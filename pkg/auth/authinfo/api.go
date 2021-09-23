@@ -2,6 +2,7 @@ package authinfo
 
 import (
 	"context"
+	"io"
 	"sync"
 )
 
@@ -51,4 +52,12 @@ func MapToList(list map[string]struct{}) []string {
 // It uses an O(1) lookup.
 func (ai *AuthInfo) CheckGroup(group string) bool {
 	return ai.checkGroup(group)
+}
+
+// Write will write the authentication information in a human-readable
+// format. Each line will be preceeded by a prefix and succeeded with a postfix.
+// The specified space string will be used for further indentation.
+func (ai *AuthInfo) Write(writer io.Writer,
+	prefix, space, postfix string) error {
+	return ai.write(writer, prefix, space, postfix)
 }
