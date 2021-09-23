@@ -16,6 +16,16 @@ func contextWithAuthInfo(ctx context.Context,
 	return context.WithValue(ctx, authContextKey, authInfo)
 }
 
+func formatList(list []string, prefix, space, postfix string) []string {
+	var formattedList []string
+	for _, entry := range list {
+		formattedList = append(formattedList,
+			fmt.Sprintf("%s%s%s%s%s\n",
+				prefix, space, space, entry, postfix))
+	}
+	return formattedList
+}
+
 func getAuthInfoFromContext(ctx context.Context) *AuthInfo {
 	if val := ctx.Value(authContextKey); val != nil {
 		if authInfo, ok := val.(AuthInfo); ok {
@@ -43,9 +53,8 @@ func mapToList(list map[string]struct{}) []string {
 }
 
 func writeList(writer io.Writer, list []string, prefix, space, postfix string) {
-	for _, entry := range list {
-		fmt.Fprintf(writer, "%s%s%s%s%s\n",
-			prefix, space, space, entry, postfix)
+	for _, line := range formatList(list, prefix, space, postfix) {
+		fmt.Fprint(writer, line)
 	}
 }
 
@@ -64,30 +73,30 @@ func (ai *AuthInfo) write(writer io.Writer,
 	if ai == nil {
 		fmt.Fprintf(writer, "%sNo authentication information%s\n",
 			prefix, postfix)
+		return nil
+	}
+	if ai.Username != "" {
+		fmt.Fprintf(writer, "%sUsername: %s%s\n",
+			prefix, ai.Username, postfix)
+	} else if ai.AwsRole != nil {
+		fmt.Fprintf(writer, "%sAWS role: %s in account: %s (ARN=%s)%s\n",
+			prefix, ai.AwsRole.Name, ai.AwsRole.AccountId,
+			ai.AwsRole.ARN, postfix)
 	} else {
-		if ai.Username != "" {
-			fmt.Fprintf(writer, "%sUsername: %s%s\n",
-				prefix, ai.Username, postfix)
-		} else if ai.AwsRole != nil {
-			fmt.Fprintf(writer, "%sAWS role: %s in account: %s (ARN=%s)%s\n",
-				prefix, ai.AwsRole.Name, ai.AwsRole.AccountId,
-				ai.AwsRole.ARN, postfix)
-		} else {
-			fmt.Fprintf(writer, "%sUnknown principal%s\n", prefix, postfix)
-		}
-		if len(ai.Groups) > 0 {
-			fmt.Fprintf(writer, "%sGroup list:%s\n", prefix, postfix)
-			writeList(writer, ai.Groups, prefix, space, postfix)
-		} else {
-			fmt.Fprintf(writer, "%sNo group memberships%s\n", prefix, postfix)
-		}
-		if len(ai.PermittedMethods) > 0 {
-			fmt.Fprintf(writer, "%sPermitted methods:%s\n", prefix, postfix)
-			writeList(writer, ai.PermittedMethods, prefix, space, postfix)
-		} else {
-			fmt.Fprintf(writer, "%sNo methods are permitted%s\n",
-				prefix, postfix)
-		}
+		fmt.Fprintf(writer, "%sUnknown principal%s\n", prefix, postfix)
+	}
+	if len(ai.Groups) > 0 {
+		fmt.Fprintf(writer, "%sGroup list:%s\n", prefix, postfix)
+		writeList(writer, ai.Groups, prefix, space, postfix)
+	} else {
+		fmt.Fprintf(writer, "%sNo group memberships%s\n", prefix, postfix)
+	}
+	if len(ai.PermittedMethods) > 0 {
+		fmt.Fprintf(writer, "%sPermitted methods:%s\n", prefix, postfix)
+		writeList(writer, ai.PermittedMethods, prefix, space, postfix)
+	} else {
+		fmt.Fprintf(writer, "%sNo methods are permitted%s\n",
+			prefix, postfix)
 	}
 	return nil
 }
