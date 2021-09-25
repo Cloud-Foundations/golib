@@ -14,6 +14,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/auth/authinfo"
@@ -30,7 +31,7 @@ const (
 	maxAgeSecondsRedirCookie      = 120
 	redirCookieName               = "oauth2_redir"
 	oauth2redirectPath            = "/oauth2/redirectendpoint"
-	authNCookieExpirationDuration = 8 * 3600 * time.Second
+	authNCookieExpirationDuration = 12 * time.Hour
 )
 
 type accessToken struct {
@@ -41,11 +42,13 @@ type accessToken struct {
 }
 
 type authNHandler struct {
-	authCookieName string
-	config         Config
-	netClient      *http.Client
-	params         Params
-	sharedSecrets  []string
+	authCookieName   string
+	config           Config
+	netClient        *http.Client
+	params           Params
+	sharedSecrets    []string
+	mutex            sync.Mutex                // Protect everything below.
+	cachedUserGroups map[string]expiringGroups // Key: username.
 }
 
 type authInfo struct {
@@ -55,7 +58,11 @@ type authInfo struct {
 	Audience   []string `json:"aud,omitempty"`
 	Expiration int64    `json:"exp,omitempty"`
 	NotBefore  int64    `json:"nbf,omitempty"`
-	Groups     []string `json:"groups,omitempty"`
+}
+
+type expiringGroups struct {
+	expires time.Time
+	groups  []string
 }
 
 type oauth2StateJWT struct {
@@ -108,10 +115,11 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 
 func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
 	h := &authNHandler{
-		authCookieName: cookieNamePrefix,
-		config:         config,
-		netClient:      &http.Client{Timeout: time.Second * 15},
-		params:         params,
+		authCookieName:   cookieNamePrefix,
+		config:           config,
+		netClient:        &http.Client{Timeout: time.Second * 15},
+		params:           params,
+		cachedUserGroups: make(map[string]expiringGroups),
 	}
 	if err := h.loadSharedSecrets(); err != nil {
 		return nil, err
@@ -144,11 +152,11 @@ func (h *authNHandler) genValidAuthCookieExpiration(
 	}
 	subject := "state:" + h.authCookieName
 	authToken := authInfo{
-		Issuer: issuer, Subject: subject,
+		Issuer:     issuer,
+		Subject:    subject,
 		Audience:   []string{issuer},
 		Username:   userInfo.Username,
 		Expiration: expires.Unix(),
-		Groups:     userInfo.Groups,
 	}
 	// TODO: add IssuedAt and NotBefore?
 	authToken.NotBefore = time.Now().Unix()
@@ -165,7 +173,36 @@ func (h *authNHandler) genValidAuthCookieExpiration(
 		HttpOnly: true,
 		Secure:   true,
 	}
+	h.setCachedUserGroups(userInfo.Username, userInfo.Groups, expires)
 	return &userCookie, nil
+}
+
+func (h *authNHandler) getCachedUserGroups(username string) []string {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	eg, ok := h.cachedUserGroups[username]
+	if !ok {
+		return nil
+	}
+	if time.Since(eg.expires) > 0 {
+		delete(h.cachedUserGroups, username)
+		return nil
+	}
+	return eg.groups
+}
+
+func (h *authNHandler) setCachedUserGroups(username string, groups []string,
+	expires time.Time) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	if len(groups) < 1 {
+		delete(h.cachedUserGroups, username)
+		return
+	}
+	h.cachedUserGroups[username] = expiringGroups{
+		expires: expires,
+		groups:  groups,
+	}
 }
 
 func (h *authNHandler) setAndStoreAuthCookie(w http.ResponseWriter,
@@ -174,6 +211,9 @@ func (h *authNHandler) setAndStoreAuthCookie(w http.ResponseWriter,
 	if err != nil {
 		return err
 	}
+	h.params.Logger.Debugf(2,
+		"setAndStoreAuthCookie: %s host: %s query: %s name: %s\n",
+		r.URL.Path, r.Host, r.URL.RawQuery, userCookie.Name)
 	http.SetCookie(w, userCookie)
 	return nil
 }
@@ -184,6 +224,8 @@ func (h *authNHandler) getRedirURL(r *http.Request) string {
 
 func (h *authNHandler) generateAuthCodeURL(state string,
 	r *http.Request) string {
+	h.params.Logger.Debugf(2, "generateAuthCodeURL: %s query: %s\n",
+		r.URL.Path, r.URL.RawQuery)
 	var buf bytes.Buffer
 	buf.WriteString(h.config.AuthURL)
 	redirectURL := h.getRedirURL(r)
@@ -229,9 +271,14 @@ func (h *authNHandler) generateValidStateString(r *http.Request) (
 	}
 	issuer := r.Host
 	subject := "state:" + redirCookieName
-	stateToken := oauth2StateJWT{Issuer: issuer, Subject: subject,
+	stateToken := oauth2StateJWT{
+		Issuer:    issuer,
+		Subject:   subject,
 		Audience:  []string{issuer},
-		ReturnURL: r.URL.String()}
+		ReturnURL: r.URL.String(),
+	}
+	h.params.Logger.Debugf(2,
+		"generateValidStateString: issuer: %s subject: %s\n", issuer, subject)
 	stateToken.NotBefore = time.Now().Unix()
 	stateToken.IssuedAt = stateToken.NotBefore
 	stateToken.Expiration = stateToken.IssuedAt + maxAgeSecondsRedirCookie
@@ -241,13 +288,19 @@ func (h *authNHandler) generateValidStateString(r *http.Request) (
 // This is where the redirect to the oath2 provider is computed.
 func (h *authNHandler) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter,
 	r *http.Request) {
+	h.params.Logger.Debugf(2,
+		"oauth2DoRedirectoToProviderHandler: %s query: %s\n",
+		r.URL.Path, r.URL.RawQuery)
 	stateString, err := h.generateValidStateString(r)
 	if err != nil {
 		h.params.Logger.Printf("err=%s", err)
 		http.Error(w, "Internal Error ", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, h.generateAuthCodeURL(stateString, r), http.StatusFound)
+	redirectURL := h.generateAuthCodeURL(stateString, r)
+	h.params.Logger.Debugf(2,
+		"oauth2DoRedirectoToProviderHandler: redirecting to: %s\n", redirectURL)
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 // Next are the functions fo checking the callback
@@ -309,8 +362,7 @@ func (h *authNHandler) getVerifyReturnStateJWT(r *http.Request) (
 	if inboundJWT.Issuer != issuer || inboundJWT.Subject != subject ||
 		inboundJWT.NotBefore > time.Now().Unix() ||
 		inboundJWT.Expiration < time.Now().Unix() {
-		err = errors.New("invalid JWT values")
-		return inboundJWT, err
+		return inboundJWT, errors.New("invalid JWT values")
 	}
 	return inboundJWT, nil
 }
@@ -347,6 +399,8 @@ func (h *authNHandler) loadSharedSecrets() error {
 
 func (h *authNHandler) oauth2RedirectPathHandler(w http.ResponseWriter,
 	r *http.Request) {
+	h.params.Logger.Debugf(2, "oauth2RedirectPathHandler: %s query: %s\n",
+		r.URL.Path, r.URL.RawQuery)
 	if r.Method != "GET" {
 		h.params.Logger.Printf("Bad method on redirect, should only be GET")
 		http.Error(w, "Invalid method", http.StatusMethodNotAllowed)
@@ -483,6 +537,8 @@ func (h *authNHandler) verifyAuthnCookie(cookieValue string, issuer string) (
 
 func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 	r *http.Request) (*authinfo.AuthInfo, error) {
+	h.params.Logger.Debugf(2, "getRemoteAuthInfo: %s query: %s\n",
+		r.URL.Path, r.URL.RawQuery)
 	// If you have a verified cert, no need for cookies
 	if r.TLS != nil && len(r.TLS.VerifiedChains) > 0 {
 		authInfo, err := x509util.GetAuthInfo(r.TLS.VerifiedChains[0][0])
@@ -494,7 +550,8 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 	remoteCookie, err := r.Cookie(h.authCookieName)
 	if err != nil {
 		h.oauth2DoRedirectoToProviderHandler(w, r)
-		return nil, err
+		return nil, fmt.Errorf("error getting cookie: %s: %s",
+			h.authCookieName, err)
 	}
 	authInfo, ok, err := h.verifyAuthnCookie(remoteCookie.Value, r.Host)
 	if err != nil {
@@ -506,13 +563,13 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 	}
 	return &authinfo.AuthInfo{
 		Username: authInfo.Username,
-		Groups:   authInfo.Groups,
+		Groups:   h.getCachedUserGroups(authInfo.Username),
 	}, nil
 }
 
 func (h *authNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.params.Logger.Debugf(0, "Inside the handler path=%s redir=%s",
-		r.URL.Path, oauth2redirectPath)
+	h.params.Logger.Debugf(0, "Inside the handler path=%s query=%s",
+		r.URL.Path, r.URL.RawQuery)
 	if strings.HasPrefix(r.URL.Path, oauth2redirectPath) {
 		h.oauth2RedirectPathHandler(w, r)
 		return
