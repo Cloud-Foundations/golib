@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	cookieNamePrefix              = "authn_cookie"
+	cookieNamePrefix              = "cf_golib_oidc_authn_cookie"
 	secondsBetweenCleanup         = 60
 	cookieExpirationHours         = 3
 	maxAgeSecondsRedirCookie      = 120
-	redirCookieName               = "oauth2_redir"
+	redirCookieName               = "cf_golib_oidc_oauth2_redir"
 	oauth2redirectPath            = "/oauth2/redirectendpoint"
 	authNCookieExpirationDuration = 12 * time.Hour
 )
