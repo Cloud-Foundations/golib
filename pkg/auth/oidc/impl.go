@@ -37,7 +37,7 @@ const (
 type accessToken struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:expires_in`
+	ExpiresIn   int    `json:"expires_in"`
 	IDToken     string `json:"id_token"`
 }
 
@@ -56,7 +56,7 @@ type authInfo struct {
 	Issuer     string   `json:"iss,omitempty"`
 	Subject    string   `json:"sub,omitempty"`
 	Audience   []string `json:"aud,omitempty"`
-	Expiration int64    `json:"exp,omitempty"`
+	Expiration int64    `json:"exp,omitempty"` // Seconds since the Epoch.
 	NotBefore  int64    `json:"nbf,omitempty"`
 }
 
@@ -173,22 +173,23 @@ func (h *authNHandler) genValidAuthCookieExpiration(
 		HttpOnly: true,
 		Secure:   true,
 	}
-	h.setCachedUserGroups(userInfo.Username, userInfo.Groups, expires)
 	return &userCookie, nil
 }
 
-func (h *authNHandler) getCachedUserGroups(username string) []string {
+// Returns cached group information for the user. If there is no valid cached
+// information, returns false.
+func (h *authNHandler) getCachedUserGroups(username string) (bool, []string) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	eg, ok := h.cachedUserGroups[username]
 	if !ok {
-		return nil
+		return false, nil
 	}
 	if time.Since(eg.expires) > 0 {
 		delete(h.cachedUserGroups, username)
-		return nil
+		return false, nil
 	}
-	return eg.groups
+	return true, eg.groups
 }
 
 func (h *authNHandler) setCachedUserGroups(username string, groups []string,
@@ -215,6 +216,7 @@ func (h *authNHandler) setAndStoreAuthCookie(w http.ResponseWriter,
 		"setAndStoreAuthCookie: %s host: %s query: %s name: %s\n",
 		r.URL.Path, r.Host, r.URL.RawQuery, userCookie.Name)
 	http.SetCookie(w, userCookie)
+	h.setCachedUserGroups(userInfo.Username, userInfo.Groups, expires)
 	return nil
 }
 
@@ -364,6 +366,9 @@ func (h *authNHandler) getVerifyReturnStateJWT(r *http.Request) (
 		inboundJWT.Expiration < time.Now().Unix() {
 		return inboundJWT, errors.New("invalid JWT values")
 	}
+	h.params.Logger.Debugf(1,
+		"getVerifyReturnStateJWT: inbound JWT expiration: %s\n",
+		time.Unix(inboundJWT.Expiration, 0))
 	return inboundJWT, nil
 }
 
@@ -418,6 +423,9 @@ func (h *authNHandler) oauth2RedirectPathHandler(w http.ResponseWriter,
 		http.Error(w, "null or bad inboundState", http.StatusUnauthorized)
 		return
 	}
+	h.params.Logger.Debugf(1,
+		"oauth2RedirectPathHandler: inboundJWT expires: %s\n",
+		time.Unix(inboundJWT.Expiration, 0))
 	// OK state is valid.. now we perform the token exchange
 	redirectURL := h.getRedirURL(r)
 	tokenRespBody, err := h.getBytesFromSuccessfullPost(h.config.TokenURL,
@@ -448,6 +456,9 @@ func (h *authNHandler) oauth2RedirectPathHandler(w http.ResponseWriter,
 		http.Error(w, "invalid accessToken ", http.StatusInternalServerError)
 		return
 	}
+	h.params.Logger.Debugf(1,
+		"oauth2RedirectPathHandler: access token expires: %s\n",
+		time.Now().Add(time.Second*time.Duration(oauth2AccessToken.ExpiresIn)))
 	// Now we use the access_token (from token exchange) to get userinfo
 	userInfoRespBody, err := h.getBytesFromSuccessfullPost(h.config.UserinfoURL,
 		url.Values{"access_token": {oauth2AccessToken.AccessToken}})
@@ -561,9 +572,14 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 		h.oauth2DoRedirectoToProviderHandler(w, r)
 		return nil, errors.New("Cookie not found")
 	}
+	valid, groups := h.getCachedUserGroups(authInfo.Username)
+	if !valid {
+		h.oauth2DoRedirectoToProviderHandler(w, r)
+		return nil, errors.New("No valid cached group data")
+	}
 	return &authinfo.AuthInfo{
+		Groups:   groups,
 		Username: authInfo.Username,
-		Groups:   h.getCachedUserGroups(authInfo.Username),
 	}, nil
 }
 
