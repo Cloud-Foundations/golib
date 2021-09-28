@@ -7,6 +7,7 @@ package oidc
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/auth/authinfo"
 	"github.com/Cloud-Foundations/golib/pkg/log"
@@ -14,6 +15,10 @@ import (
 
 // Config specifies the client OpenID-Connect/OAuth2 configuration.
 type Config struct {
+	// AuthURL specifies the authorisation endpoint of the IDP. This is not
+	// needed for an OpenID-Connect IDP.
+	AuthURL string `yaml:"auth_url" envconfig:"OIDC_AUTH_URL"`
+
 	// ClientID specifies the ID of this client, registered with the IDP. This
 	// is required.
 	ClientID string `yaml:"client_id" envconfig:"OIDC_CLIENT_ID"`
@@ -21,20 +26,13 @@ type Config struct {
 	// ClientSecret specifies the client shared secret. This is required.
 	ClientSecret string `yaml:"client_secret" envconfig:"OIDC_CLIENT_SECRET"`
 
+	// MaxAuthCookieLifetime specifies the maximum lifetime of the
+	// authentication cookie. This is optional (default 12 hours). The minimum
+	// is 5 minutes and the maximum is 24 hours.
+	MaxAuthCookieLifetime time.Duration `yaml:"max_auth_cookie_lifetime" envconfig:"OIDC_MAX_AUTH_COOKIE_LIFETIME"`
+
 	// ProviderURL specifies the base URL of the IDP. This is required.
 	ProviderURL string `yaml:"provider_url" envconfig:"OIDC_PROVIDER_URL"`
-
-	// AuthURL specifies the authorisation endpoint of the IDP. This is not
-	// needed for an OpenID-Connect IDP.
-	AuthURL string `yaml:"auth_url" envconfig:"OIDC_AUTH_URL"`
-
-	// TokenURL specifies the token endpoint of the IDP. This is not needed for
-	// an OpenID-Connect IDP.
-	TokenURL string `yaml:"token_url" envconfig:"OIDC_TOKEN_URL"`
-
-	// UserinfoURL specifies the userinfo endpoint of the IDP. This is not
-	// needed for an OpenID-Connect IDP.
-	UserinfoURL string `yaml:"userinfo_url" envconfig:"OIDC_USERINFO_URL"`
 
 	// Scopes specifies the scopes to request. This is required.
 	Scopes string `yaml:"scopes" envconfig:"OIDC_SCOPES"`
@@ -47,6 +45,14 @@ type Config struct {
 	// secret is generated and written to the file, so that existing authN
 	// cookies are not invalidated upon restart.
 	SharedSecretFilename string `yaml:"shared_secret_filename" envconfig:"OIDC_SHARED_SECRET_FILENAME"`
+
+	// TokenURL specifies the token endpoint of the IDP. This is not needed for
+	// an OpenID-Connect IDP.
+	TokenURL string `yaml:"token_url" envconfig:"OIDC_TOKEN_URL"`
+
+	// UserinfoURL specifies the userinfo endpoint of the IDP. This is not
+	// needed for an OpenID-Connect IDP.
+	UserinfoURL string `yaml:"userinfo_url" envconfig:"OIDC_USERINFO_URL"`
 }
 
 // Params specifies runtime parameters.
