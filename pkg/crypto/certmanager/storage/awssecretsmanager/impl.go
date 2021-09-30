@@ -15,14 +15,14 @@ import (
 )
 
 func getAwsService(secretId string) (*secretsmanager.SecretsManager, error) {
-	metadataClient, err := metadata.GetMetadataClient()
-	if err != nil {
-		return nil, err
-	}
 	var region string
 	if arn, err := arn.Parse(secretId); err == nil {
 		region = arn.Region
 	} else {
+		metadataClient, err := metadata.GetMetadataClient()
+		if err != nil {
+			return nil, err
+		}
 		region, err = metadataClient.Region()
 		if err != nil {
 			return nil, err

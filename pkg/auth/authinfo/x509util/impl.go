@@ -11,12 +11,14 @@ import (
 )
 
 func getAuthInfo(cert *x509.Certificate) (*authinfo.AuthInfo, error) {
+	ai := &authinfo.AuthInfo{Expires: cert.NotAfter}
 	if role, err := getAwsRole(cert); err != nil {
 		return nil, err
 	} else if role != nil {
-		return &authinfo.AuthInfo{AwsRole: role}, nil
+		ai.AwsRole = role
+		return ai, nil
 	}
-	ai := &authinfo.AuthInfo{Username: cert.Subject.CommonName}
+	ai.Username = cert.Subject.CommonName
 	groups, err := getList(cert, constants.GroupListOID)
 	if err != nil {
 		return nil, fmt.Errorf("error getting group list: %s", err)
