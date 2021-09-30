@@ -4,11 +4,13 @@ import (
 	"context"
 	"io"
 	"sync"
+	"time"
 )
 
 // AuthInfo contains authentication information.
 type AuthInfo struct {
 	AwsRole          *AwsRole
+	Expires          time.Time
 	Groups           []string
 	PermittedMethods []string
 	Username         string

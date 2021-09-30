@@ -98,5 +98,9 @@ func (ai *AuthInfo) write(writer io.Writer,
 		fmt.Fprintf(writer, "%sNo methods are permitted%s\n",
 			prefix, postfix)
 	}
+	if !ai.Expires.IsZero() {
+		fmt.Fprintf(writer, "%sAuthentication information expires: %s%s\n",
+			prefix, ai.Expires.Local(), postfix)
+	}
 	return nil
 }

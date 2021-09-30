@@ -25,13 +25,12 @@ import (
 )
 
 const (
-	cookieNamePrefix              = "cf_golib_oidc_authn_cookie"
-	secondsBetweenCleanup         = 60
-	cookieExpirationHours         = 3
-	maxAgeSecondsRedirCookie      = 120
-	redirCookieName               = "cf_golib_oidc_oauth2_redir"
-	oauth2redirectPath            = "/oauth2/redirectendpoint"
-	authNCookieExpirationDuration = 12 * time.Hour
+	cookieNamePrefix         = "cf_golib_oidc_authn_cookie"
+	secondsBetweenCleanup    = 60
+	cookieExpirationHours    = 3
+	maxAgeSecondsRedirCookie = 120
+	redirCookieName          = "cf_golib_oidc_oauth2_redir"
+	oauth2redirectPath       = "/oauth2/redirectendpoint"
 )
 
 type accessToken struct {
@@ -114,6 +113,13 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 }
 
 func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
+	if config.MaxAuthCookieLifetime < 1 {
+		config.MaxAuthCookieLifetime = 12 * time.Hour
+	} else if config.MaxAuthCookieLifetime < 5*time.Minute {
+		config.MaxAuthCookieLifetime = 5 * time.Minute
+	} else if config.MaxAuthCookieLifetime > 24*time.Hour {
+		config.MaxAuthCookieLifetime = 24 * time.Hour
+	}
 	h := &authNHandler{
 		authCookieName:   cookieNamePrefix,
 		config:           config,
@@ -479,7 +485,7 @@ func (h *authNHandler) oauth2RedirectPathHandler(w http.ResponseWriter,
 	userInfo.Username = getUsernameFromUserinfo(userInfo)
 	sort.Strings(userInfo.Groups)
 	err = h.setAndStoreAuthCookie(w, r, &userInfo,
-		time.Now().Add(authNCookieExpirationDuration))
+		time.Now().Add(h.config.MaxAuthCookieLifetime))
 	if err != nil {
 		h.params.Logger.Println(err)
 		http.Error(w, "cannot set auth Cookie", http.StatusInternalServerError)
@@ -578,6 +584,7 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 		return nil, errors.New("No valid cached group data")
 	}
 	return &authinfo.AuthInfo{
+		Expires:  time.Unix(authInfo.Expiration, 0),
 		Groups:   groups,
 		Username: authInfo.Username,
 	}, nil
