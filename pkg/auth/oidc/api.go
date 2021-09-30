@@ -14,10 +14,22 @@ import (
 )
 
 // Config specifies the client OpenID-Connect/OAuth2 configuration.
+// Shared secrets are used so that multiple instances of the web application can
+// trust each others authN cookies. If the instance cannot share these secrets
+// there may be increased latency as the browser is bounced between instances,
+// needing to re-request credentials from the IDentity Provider. If no method
+// for fetching the shared secrets is specified then a secret is generated when
+// the application starts up, which will cause existing authN cookies to be
+// invalidated.
 type Config struct {
 	// AuthURL specifies the authorisation endpoint of the IDP. This is not
 	// needed for an OpenID-Connect IDP.
 	AuthURL string `yaml:"auth_url" envconfig:"OIDC_AUTH_URL"`
+
+	// AwsSecretId specifies the AWS secret containing the shared secrets. If
+	// the secret object is empty then a secret is generated and saved.
+	// Optional.
+	AwsSecretId string `yaml:"aws_secret_id" envconfig:"OIDC_AWS_SECRET_ID"`
 
 	// ClientID specifies the ID of this client, registered with the IDP. This
 	// is required.
@@ -37,13 +49,9 @@ type Config struct {
 	// Scopes specifies the scopes to request. This is required.
 	Scopes string `yaml:"scopes" envconfig:"OIDC_SCOPES"`
 
-	// SharedSecretFilename specifies a file containing one or more secrets
-	// which are used so that multiple instances of the web application can
-	// trust each others authN cookies. If this is not specified then a
-	// secret is generated when the application starts up, which will cause
-	// existing authN cookies to be invalidated. If the file is empty then a
-	// secret is generated and written to the file, so that existing authN
-	// cookies are not invalidated upon restart.
+	// SharedSecretFilename specifies a file containing the shared secrets. If
+	// the file is missing then a secret is generated and written to the file.
+	// Optional.
 	SharedSecretFilename string `yaml:"shared_secret_filename" envconfig:"OIDC_SHARED_SECRET_FILENAME"`
 
 	// TokenURL specifies the token endpoint of the IDP. This is not needed for
