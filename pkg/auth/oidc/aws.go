@@ -80,7 +80,7 @@ func (h *authNHandler) setupAwsSharedSecrets() error {
 	}
 	secret, err := getAwsSecret(awsService, h.config.AwsSecretId)
 	if err != nil {
-		return err
+		h.params.Logger.Println(err)
 	}
 	if secret == "" { // Generate secret and attempt to save.
 		if err := h.generateSharedSecrets(); err != nil {
