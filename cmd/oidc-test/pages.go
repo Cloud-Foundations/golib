@@ -22,17 +22,7 @@ func genericHandler(w http.ResponseWriter, req *http.Request, pageName string) {
 	fmt.Fprintln(writer, "<center>")
 	fmt.Fprintf(writer, "<h1>oidc-test %s</h1>\n", pageName)
 	fmt.Fprintln(writer, "</center>")
-	if authInfo := oidc.GetAuthInfoFromRequest(req); authInfo == nil {
-		fmt.Fprintln(writer, "No authentication information<br>")
-	} else {
-		fmt.Fprintf(writer, "Authenticated user: %s<br>\n", authInfo.Username)
-		if len(authInfo.Groups) > 0 {
-			fmt.Fprintln(writer, "Groups: <br>")
-			for _, group := range authInfo.Groups {
-				fmt.Fprintf(writer, "&nbsp&nbsp%s<br>\n", group)
-			}
-		}
-	}
+	oidc.GetAuthInfoFromRequest(req).Write(writer, "", "&nbsp&nbsp", "<br>")
 	fmt.Fprintln(writer, "<p>")
 	html.WriteFooter(writer)
 	fmt.Fprintln(writer, "</body>")
