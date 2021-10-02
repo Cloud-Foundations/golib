@@ -18,6 +18,15 @@ func defaultLogoutHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *authNHandler) logout(w http.ResponseWriter, r *http.Request) {
+	authCookie, err := r.Cookie(h.authCookieName)
+	if authCookie != nil && err == nil {
+		authInfo, ok, err := h.verifyAuthnCookie(authCookie.Value, r.Host)
+		if ok && err == nil {
+			h.mutex.Lock()
+			delete(h.cachedUserGroups, authInfo.Username)
+			h.mutex.Unlock()
+		}
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     h.authCookieName,
 		Value:    "",
