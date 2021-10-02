@@ -26,6 +26,7 @@ const (
 	cookieExpirationHours    = 3
 	maxAgeSecondsRedirCookie = 120
 	redirCookieName          = "cf_golib_oidc_oauth2_redir"
+	logoutPath               = "/logout"
 	oauth2redirectPath       = "/oauth2/redirectendpoint"
 )
 
@@ -115,6 +116,9 @@ func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
 		config.MaxAuthCookieLifetime = 5 * time.Minute
 	} else if config.MaxAuthCookieLifetime > 24*time.Hour {
 		config.MaxAuthCookieLifetime = 24 * time.Hour
+	}
+	if params.LogoutHandler == nil {
+		params.LogoutHandler = defaultLogoutHandler
 	}
 	h := &authNHandler{
 		authCookieName:   cookieNamePrefix,
@@ -549,6 +553,10 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 func (h *authNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.params.Logger.Debugf(0, "Inside the handler path=%s query=%s",
 		r.URL.Path, r.URL.RawQuery)
+	if r.URL.Path == logoutPath {
+		h.logout(w, r)
+		return
+	}
 	if strings.HasPrefix(r.URL.Path, oauth2redirectPath) {
 		h.oauth2RedirectPathHandler(w, r)
 		return

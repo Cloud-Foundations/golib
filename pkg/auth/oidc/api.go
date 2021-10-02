@@ -76,6 +76,11 @@ type Params struct {
 
 	// Logger specifies the logger to use.
 	Logger log.DebugLogger
+
+	// LogoutHandler specifies an optional handler to call when the user logs
+	// out by visiting the "/logout" path. If this is not specified, a simple
+	// default page is shown.
+	LogoutHandler func(w http.ResponseWriter, req *http.Request)
 }
 
 // NewAuthNHandler creates a new HTTP handler which handles all incoming HTTP
