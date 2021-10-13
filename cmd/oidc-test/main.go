@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
@@ -24,13 +25,14 @@ var (
 )
 
 type configType struct {
-	ACME             acmecfg.AcmeConfig
-	HttpRedirectPort uint16 `yaml:"http_redirect_port"`
-	ServicePort      uint16 `yaml:"service_port"`
-	StatusPort       uint16 `yaml:"status_port"`
-	TLSCertFilename  string `yaml:"tls_cert_filename"`
-	TLSKeyFilename   string `yaml:"tls_key_filename"`
-	OpenID           oidc.Config
+	ACME                   acmecfg.AcmeConfig
+	HttpRedirectPort       uint16 `yaml:"http_redirect_port"`
+	ServicePort            uint16 `yaml:"service_port"`
+	StatusPort             uint16 `yaml:"status_port"`
+	TLSCertFilename        string `yaml:"tls_cert_filename"`
+	TLSKeyFilename         string `yaml:"tls_key_filename"`
+	UnencryptedServicePort uint16 `yaml:"unencrypted_service_port"`
+	OpenID                 oidc.Config
 }
 
 type serverType struct {
@@ -125,5 +127,13 @@ func startServer(logger log.DebugLogger) error {
 	html.ServeMuxHandleFunc(serviceMux, "/", rootHandler)
 	html.ServeMuxHandleFunc(serviceMux, "/page0", page0Handler)
 	html.ServeMuxHandleFunc(serviceMux, "/page1", page1Handler)
+	if config.UnencryptedServicePort > 0 {
+		unencryptedListener, err := net.Listen("tcp",
+			fmt.Sprintf(":%d", config.UnencryptedServicePort))
+		if err != nil {
+			return err
+		}
+		go http.Serve(unencryptedListener, authNHandler)
+	}
 	return http.Serve(serviceListener, authNHandler)
 }
