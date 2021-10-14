@@ -517,7 +517,7 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 	h.params.Logger.Debugf(2, "getRemoteAuthInfo: %s query: %s\n",
 		r.URL.Path, r.URL.RawQuery)
 	// If you have a verified cert, no need for cookies
-	if r.TLS != nil && len(r.TLS.VerifiedChains) > 0 {
+	if len(r.TLS.VerifiedChains) > 0 {
 		authInfo, err := x509util.GetAuthInfo(r.TLS.VerifiedChains[0][0])
 		if err == nil {
 			return authInfo, nil
@@ -553,6 +553,12 @@ func (h *authNHandler) getRemoteAuthInfo(w http.ResponseWriter,
 func (h *authNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.params.Logger.Debugf(0, "Inside the handler path=%s query=%s",
 		r.URL.Path, r.URL.RawQuery)
+	if r.TLS == nil {
+		h.params.Logger.Println("Rejecting unencrypted connection")
+		http.Error(w, "Rejecting unencrypted connection",
+			http.StatusUnauthorized)
+		return
+	}
 	if r.URL.Path == logoutPath {
 		h.logout(w, r)
 		return
