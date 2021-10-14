@@ -202,10 +202,6 @@ func (h *authNHandler) setCachedUserGroups(username string, groups []string,
 	expires time.Time) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
-	if len(groups) < 1 {
-		delete(h.cachedUserGroups, username)
-		return
-	}
 	h.cachedUserGroups[username] = expiringGroups{
 		expires: expires,
 		groups:  groups,
