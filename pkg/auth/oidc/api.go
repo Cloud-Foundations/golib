@@ -38,6 +38,11 @@ type Config struct {
 	// ClientSecret specifies the client shared secret. This is required.
 	ClientSecret string `yaml:"client_secret" envconfig:"OIDC_CLIENT_SECRET"`
 
+	// LoginCookieLifetime specifies the lifetime of the login cookie.
+	// This is optional (default is no explicit login request is required).
+	// The minimum is 1 hour and the maximum is 400 days.
+	LoginCookieLifetime time.Duration `yaml:"login_cookie_lifetime" envconfig:"OIDC_LOGIN_COOKIE_LIFETIME"`
+
 	// MaxAuthCookieLifetime specifies the maximum lifetime of the
 	// authentication cookie. This is optional (default 12 hours). The minimum
 	// is 5 minutes and the maximum is 24 hours.
@@ -79,7 +84,8 @@ type Params struct {
 
 	// LogoutHandler specifies an optional handler to call when the user logs
 	// out by visiting the "/logout" path. If this is not specified, a simple
-	// default page is shown.
+	// default page is shown, informing the user they are logged out and showing
+	// a button allowing them to log in.
 	LogoutHandler func(w http.ResponseWriter, req *http.Request)
 }
 

@@ -21,13 +21,17 @@ import (
 )
 
 const (
-	cookieNamePrefix         = "cf_golib_oidc_authn_cookie"
-	secondsBetweenCleanup    = 60
+	authCookieNamePrefix     = "cf_golib_oidc_authn_cookie"
 	cookieExpirationHours    = 3
-	maxAgeSecondsRedirCookie = 120
-	redirCookieName          = "cf_golib_oidc_oauth2_redir"
+	loginCookieName          = "cf_golib_oidc_login"
+	loginPath                = "/login"
 	logoutPath               = "/logout"
+	maxAgeSecondsRedirCookie = 120
+	maxLoginCookieLifetime   = 400 * 24 * time.Hour
+	minLoginCookieLifetime   = time.Hour
 	oauth2redirectPath       = "/oauth2/redirectendpoint"
+	redirCookieName          = "cf_golib_oidc_oauth2_redir"
+	secondsBetweenCleanup    = 60
 )
 
 type accessToken struct {
@@ -110,6 +114,13 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 }
 
 func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
+	if config.LoginCookieLifetime > 0 {
+		if config.LoginCookieLifetime < minLoginCookieLifetime {
+			config.LoginCookieLifetime = minLoginCookieLifetime
+		} else if config.LoginCookieLifetime > maxLoginCookieLifetime {
+			config.LoginCookieLifetime = maxLoginCookieLifetime
+		}
+	}
 	if config.MaxAuthCookieLifetime < 1 {
 		config.MaxAuthCookieLifetime = 12 * time.Hour
 	} else if config.MaxAuthCookieLifetime < 5*time.Minute {
@@ -121,7 +132,7 @@ func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
 		params.LogoutHandler = defaultLogoutHandler
 	}
 	h := &authNHandler{
-		authCookieName:   cookieNamePrefix,
+		authCookieName:   authCookieNamePrefix,
 		config:           config,
 		netClient:        &http.Client{Timeout: time.Second * 15},
 		params:           params,
@@ -196,6 +207,44 @@ func (h *authNHandler) getCachedUserGroups(username string) (bool, []string) {
 		return false, nil
 	}
 	return true, eg.groups
+}
+
+// loginHandler handles an explicit user login action (a POST request on the
+// "/login" path), sets the login cookie and then redirects.
+func (h *authNHandler) loginHandler(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	h.params.Logger.Debugf(2,
+		"loginHandler(): Origin: \"%s\" Method: \"%s\" Host: \"%s\"\n",
+		origin, r.Method, r.Host)
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if len(origin) > 0 && len(r.Host) > 0 {
+		originURL, err := url.Parse(origin)
+		if err != nil {
+			h.params.Logger.Printf("Error parsing: \"%s\": %s\n", origin, err)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		if originURL.Host != r.Host {
+			h.params.Logger.Printf("CSRF detected: rejecting with a 401")
+			http.Error(w, "Banned", http.StatusUnauthorized)
+			return
+		}
+	}
+	expires := time.Now().Add(h.config.LoginCookieLifetime)
+	http.SetCookie(w, &http.Cookie{
+		Name:     loginCookieName,
+		Value:    "logged_in",
+		Path:     "/",
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   true,
+	})
+	h.params.Logger.Debugf(2,
+		"Set login cookie (expires=%s), redirecting to main page\n", expires)
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (h *authNHandler) setCachedUserGroups(username string, groups []string,
@@ -285,6 +334,15 @@ func (h *authNHandler) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter,
 	h.params.Logger.Debugf(2,
 		"oauth2DoRedirectoToProviderHandler: %s query: %s\n",
 		r.URL.Path, r.URL.RawQuery)
+	if h.config.LoginCookieLifetime > 0 { // Explicit login required.
+		loginCookie, err := r.Cookie(loginCookieName)
+		if err != nil ||
+			loginCookie == nil ||
+			loginCookie.Value != "logged_in" {
+			h.params.LogoutHandler(w, r) // Show logged-out page.
+			return
+		}
+	}
 	stateString, err := h.generateValidStateString(r)
 	if err != nil {
 		h.params.Logger.Printf("err=%s", err)
@@ -557,6 +615,10 @@ func (h *authNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == logoutPath {
 		h.logout(w, r)
+		return
+	}
+	if r.URL.Path == loginPath {
+		h.loginHandler(w, r)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, oauth2redirectPath) {
