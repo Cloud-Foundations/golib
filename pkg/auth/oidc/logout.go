@@ -10,7 +10,8 @@ const logoutPage = `<title>Logout Page</title>
 <center>
 <h1>You are logged out</h1>
 <form enctype="application/x-www-form-urlencoded" action="/login" method="post">
-<input type="submit" value="Login" />
+  <input type="submit" value="Login">
+</form>
 </center>
 </body>`
 
@@ -19,6 +20,18 @@ func defaultLogoutHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *authNHandler) logout(w http.ResponseWriter, r *http.Request) {
+	if h.config.LoginCookieLifetime > 0 {
+		// Since explicit login is required, it would be disruptive to be logged
+		// out by a CSRF attack.
+		if r.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if err := checkOrigin(w, r); err != nil {
+			h.params.Logger.Println(err)
+			return
+		}
+	}
 	authCookie, err := r.Cookie(h.authCookieName)
 	if authCookie != nil && err == nil {
 		authInfo, ok, err := h.verifyAuthnCookie(authCookie.Value, r.Host)

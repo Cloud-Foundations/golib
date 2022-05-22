@@ -40,7 +40,8 @@ type Config struct {
 
 	// LoginCookieLifetime specifies the lifetime of the login cookie.
 	// This is optional (default is no explicit login request is required).
-	// The minimum is 1 hour and the maximum is 400 days.
+	// The minimum is the greater of (MaxAuthCookieLifetime, 1 hour) and the
+	// maximum is 400 days.
 	LoginCookieLifetime time.Duration `yaml:"login_cookie_lifetime" envconfig:"OIDC_LOGIN_COOKIE_LIFETIME"`
 
 	// MaxAuthCookieLifetime specifies the maximum lifetime of the

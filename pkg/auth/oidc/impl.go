@@ -95,6 +95,32 @@ type usernameSetter interface {
 	SetUsername(username string)
 }
 
+// checkOrigin checks if the "Origin" header is present and corresponds to the
+// request host, and returns nil if so, otherwise an error is returned and an
+// error response is written to w.
+func checkOrigin(w http.ResponseWriter, r *http.Request) error {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return errors.New("no Origin header")
+	}
+	if r.Host == "" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return errors.New("no Host")
+	}
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return fmt.Errorf("error parsing Origin: \"%s\": %s", origin, err)
+	}
+	if originURL.Host != r.Host {
+		http.Error(w, "Banned", http.StatusUnauthorized)
+		return fmt.Errorf("CSRF detected: rejecting with a 401, Origin: %s",
+			origin)
+	}
+	return nil
+}
+
 func getAuthInfoFromRequest(req *http.Request) *authinfo.AuthInfo {
 	return authinfo.GetAuthInfoFromContext(req.Context())
 }
@@ -114,19 +140,22 @@ func getUsernameFromUserinfo(userInfo openidConnectUserInfo) string {
 }
 
 func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
-	if config.LoginCookieLifetime > 0 {
-		if config.LoginCookieLifetime < minLoginCookieLifetime {
-			config.LoginCookieLifetime = minLoginCookieLifetime
-		} else if config.LoginCookieLifetime > maxLoginCookieLifetime {
-			config.LoginCookieLifetime = maxLoginCookieLifetime
-		}
-	}
 	if config.MaxAuthCookieLifetime < 1 {
 		config.MaxAuthCookieLifetime = 12 * time.Hour
 	} else if config.MaxAuthCookieLifetime < 5*time.Minute {
 		config.MaxAuthCookieLifetime = 5 * time.Minute
 	} else if config.MaxAuthCookieLifetime > 24*time.Hour {
 		config.MaxAuthCookieLifetime = 24 * time.Hour
+	}
+	if config.LoginCookieLifetime > 0 {
+		if config.LoginCookieLifetime < config.MaxAuthCookieLifetime {
+			config.LoginCookieLifetime = config.MaxAuthCookieLifetime
+		}
+		if config.LoginCookieLifetime < minLoginCookieLifetime {
+			config.LoginCookieLifetime = minLoginCookieLifetime
+		} else if config.LoginCookieLifetime > maxLoginCookieLifetime {
+			config.LoginCookieLifetime = maxLoginCookieLifetime
+		}
 	}
 	if params.LogoutHandler == nil {
 		params.LogoutHandler = defaultLogoutHandler
@@ -220,18 +249,9 @@ func (h *authNHandler) loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if len(origin) > 0 && len(r.Host) > 0 {
-		originURL, err := url.Parse(origin)
-		if err != nil {
-			h.params.Logger.Printf("Error parsing: \"%s\": %s\n", origin, err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-		if originURL.Host != r.Host {
-			h.params.Logger.Printf("CSRF detected: rejecting with a 401")
-			http.Error(w, "Banned", http.StatusUnauthorized)
-			return
-		}
+	if err := checkOrigin(w, r); err != nil {
+		h.params.Logger.Println(err)
+		return
 	}
 	expires := time.Now().Add(h.config.LoginCookieLifetime)
 	http.SetCookie(w, &http.Cookie{
