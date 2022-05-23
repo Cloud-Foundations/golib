@@ -24,7 +24,10 @@ func genericHandler(w http.ResponseWriter, req *http.Request, pageName string) {
 	fmt.Fprintln(writer, "</center>")
 	oidc.GetAuthInfoFromRequest(req).Write(writer, "", "&nbsp&nbsp", "<br>")
 	fmt.Fprintln(writer, "<p>")
-	fmt.Fprintln(writer, "<a href=\"logout\">Logout</a><br>")
+	fmt.Fprintln(writer,
+		`<form enctype="application/x-www-form-urlencoded" action="/logout" method="post">`)
+	fmt.Fprintln(writer, `  <input type="submit" value="Logout">`)
+	fmt.Fprintln(writer, "</form>")
 	html.WriteFooter(writer)
 	fmt.Fprintln(writer, "</body>")
 }
