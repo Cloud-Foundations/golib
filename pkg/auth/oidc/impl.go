@@ -21,13 +21,17 @@ import (
 )
 
 const (
-	cookieNamePrefix         = "cf_golib_oidc_authn_cookie"
-	secondsBetweenCleanup    = 60
+	authCookieNamePrefix     = "cf_golib_oidc_authn_cookie"
 	cookieExpirationHours    = 3
-	maxAgeSecondsRedirCookie = 120
-	redirCookieName          = "cf_golib_oidc_oauth2_redir"
+	loginCookieName          = "cf_golib_oidc_login"
+	loginPath                = "/login"
 	logoutPath               = "/logout"
+	maxAgeSecondsRedirCookie = 120
+	maxLoginCookieLifetime   = 400 * 24 * time.Hour
+	minLoginCookieLifetime   = time.Hour
 	oauth2redirectPath       = "/oauth2/redirectendpoint"
+	redirCookieName          = "cf_golib_oidc_oauth2_redir"
+	secondsBetweenCleanup    = 60
 )
 
 type accessToken struct {
@@ -91,6 +95,32 @@ type usernameSetter interface {
 	SetUsername(username string)
 }
 
+// checkOrigin checks if the "Origin" header is present and corresponds to the
+// request host, and returns nil if so, otherwise an error is returned and an
+// error response is written to w.
+func checkOrigin(w http.ResponseWriter, r *http.Request) error {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return errors.New("no Origin header")
+	}
+	if r.Host == "" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return errors.New("no Host")
+	}
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return fmt.Errorf("error parsing Origin: \"%s\": %s", origin, err)
+	}
+	if originURL.Host != r.Host {
+		http.Error(w, "Banned", http.StatusUnauthorized)
+		return fmt.Errorf("CSRF detected: rejecting with a 401, Origin: %s",
+			origin)
+	}
+	return nil
+}
+
 func getAuthInfoFromRequest(req *http.Request) *authinfo.AuthInfo {
 	return authinfo.GetAuthInfoFromContext(req.Context())
 }
@@ -117,11 +147,21 @@ func newAuthNHandler(config Config, params Params) (*authNHandler, error) {
 	} else if config.MaxAuthCookieLifetime > 24*time.Hour {
 		config.MaxAuthCookieLifetime = 24 * time.Hour
 	}
+	if config.LoginCookieLifetime > 0 {
+		if config.LoginCookieLifetime < config.MaxAuthCookieLifetime {
+			config.LoginCookieLifetime = config.MaxAuthCookieLifetime
+		}
+		if config.LoginCookieLifetime < minLoginCookieLifetime {
+			config.LoginCookieLifetime = minLoginCookieLifetime
+		} else if config.LoginCookieLifetime > maxLoginCookieLifetime {
+			config.LoginCookieLifetime = maxLoginCookieLifetime
+		}
+	}
 	if params.LogoutHandler == nil {
 		params.LogoutHandler = defaultLogoutHandler
 	}
 	h := &authNHandler{
-		authCookieName:   cookieNamePrefix,
+		authCookieName:   authCookieNamePrefix,
 		config:           config,
 		netClient:        &http.Client{Timeout: time.Second * 15},
 		params:           params,
@@ -196,6 +236,35 @@ func (h *authNHandler) getCachedUserGroups(username string) (bool, []string) {
 		return false, nil
 	}
 	return true, eg.groups
+}
+
+// loginHandler handles an explicit user login action (a POST request on the
+// "/login" path), sets the login cookie and then redirects.
+func (h *authNHandler) loginHandler(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	h.params.Logger.Debugf(2,
+		"loginHandler(): Origin: \"%s\" Method: \"%s\" Host: \"%s\"\n",
+		origin, r.Method, r.Host)
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := checkOrigin(w, r); err != nil {
+		h.params.Logger.Println(err)
+		return
+	}
+	expires := time.Now().Add(h.config.LoginCookieLifetime)
+	http.SetCookie(w, &http.Cookie{
+		Name:     loginCookieName,
+		Value:    "logged_in",
+		Path:     "/",
+		Expires:  expires,
+		HttpOnly: true,
+		Secure:   true,
+	})
+	h.params.Logger.Debugf(2,
+		"Set login cookie (expires=%s), redirecting to main page\n", expires)
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (h *authNHandler) setCachedUserGroups(username string, groups []string,
@@ -285,6 +354,15 @@ func (h *authNHandler) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter,
 	h.params.Logger.Debugf(2,
 		"oauth2DoRedirectoToProviderHandler: %s query: %s\n",
 		r.URL.Path, r.URL.RawQuery)
+	if h.config.LoginCookieLifetime > 0 { // Explicit login required.
+		loginCookie, err := r.Cookie(loginCookieName)
+		if err != nil ||
+			loginCookie == nil ||
+			loginCookie.Value != "logged_in" {
+			h.params.LogoutHandler(w, r) // Show logged-out page.
+			return
+		}
+	}
 	stateString, err := h.generateValidStateString(r)
 	if err != nil {
 		h.params.Logger.Printf("err=%s", err)
@@ -557,6 +635,10 @@ func (h *authNHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == logoutPath {
 		h.logout(w, r)
+		return
+	}
+	if r.URL.Path == loginPath {
+		h.loginHandler(w, r)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, oauth2redirectPath) {

@@ -76,7 +76,7 @@ func checkRequestHandlerCode(req *http.Request, handlerFunc http.HandlerFunc,
 
 func makeTestAuthNHandler(t *testing.T) *authNHandler {
 	return &authNHandler{
-		authCookieName:   cookieNamePrefix,
+		authCookieName:   authCookieNamePrefix,
 		cachedUserGroups: make(map[string]expiringGroups),
 		params: Params{
 			Handler: NewTestHandler(),
