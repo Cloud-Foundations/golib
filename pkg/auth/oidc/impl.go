@@ -24,6 +24,7 @@ const (
 	authCookieNamePrefix     = "cf_golib_oidc_authn_cookie"
 	cookieExpirationHours    = 3
 	loginCookieName          = "cf_golib_oidc_login"
+	loginCookieValue         = "user_requested_login"
 	loginPath                = "/login"
 	logoutPath               = "/logout"
 	maxAgeSecondsRedirCookie = 120
@@ -256,7 +257,7 @@ func (h *authNHandler) loginHandler(w http.ResponseWriter, r *http.Request) {
 	expires := time.Now().Add(h.config.LoginCookieLifetime)
 	http.SetCookie(w, &http.Cookie{
 		Name:     loginCookieName,
-		Value:    "logged_in",
+		Value:    loginCookieValue,
 		Path:     "/",
 		Expires:  expires,
 		HttpOnly: true,
@@ -358,7 +359,7 @@ func (h *authNHandler) oauth2DoRedirectoToProviderHandler(w http.ResponseWriter,
 		loginCookie, err := r.Cookie(loginCookieName)
 		if err != nil ||
 			loginCookie == nil ||
-			loginCookie.Value != "logged_in" {
+			loginCookie.Value != loginCookieValue {
 			h.params.LogoutHandler(w, r) // Show logged-out page.
 			return
 		}
