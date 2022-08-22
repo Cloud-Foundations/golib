@@ -97,15 +97,18 @@ func (c *callerT) getCallerIdentity(ctx context.Context, presignedMethod string,
 	if cv := c.getCallerIdentityCached(presignedUrl); cv != nil {
 		return *cv, nil
 	}
-	if ctx == nil {
-		ctx = context.TODO()
-	}
 	validatedUrl, err := c.params.urlValidator(presignedUrl)
 	if err != nil {
 		return arn.ARN{}, err
 	}
 	presignedUrl = validatedUrl.String()
-	validateReq, err := http.NewRequest(presignedMethod, presignedUrl, nil)
+	var validateReq *http.Request
+	if ctx == nil {
+		validateReq, err = http.NewRequest(presignedMethod, presignedUrl, nil)
+	} else {
+		validateReq, err = http.NewRequestWithContext(ctx, presignedMethod,
+			presignedUrl, nil)
+	}
 	if err != nil {
 		return arn.ARN{}, err
 	}

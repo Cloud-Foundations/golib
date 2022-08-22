@@ -42,10 +42,10 @@ func (testAwsGetCallerIdentityType) ServeHTTP(w http.ResponseWriter,
 
 func TestAwsPresignedUrlValidation(t *testing.T) {
 	if _, err := validateStsPresignedUrl(awsPresignedUrlBadAction); err == nil {
-		t.Error(err)
+		t.Errorf("no error with bad action URL: %s", awsPresignedUrlBadAction)
 	}
 	if _, err := validateStsPresignedUrl(awsPresignedUrlBadDomain); err == nil {
-		t.Error(err)
+		t.Errorf("no error with bad domain URL: %s", awsPresignedUrlBadDomain)
 	}
 	if _, err := validateStsPresignedUrl(awsPresignedUrlGood); err != nil {
 		t.Error("valid URL does not validate")
