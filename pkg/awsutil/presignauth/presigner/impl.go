@@ -89,6 +89,8 @@ func (p *presignerT) presignGetCallerIdentity(ctx context.Context) (
 
 func (p *presignerT) refreshLoop(ctx context.Context) {
 	for ; ; time.Sleep(presignedUrlLifetime) {
-		p.presignGetCallerIdentity(ctx)
+		if _, err := p.presignGetCallerIdentity(ctx); err != nil {
+			p.params.Logger.Println(err)
+		}
 	}
 }
