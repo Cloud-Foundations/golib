@@ -17,9 +17,6 @@ func normaliseARN(input arn.ARN) (arn.ARN, error) {
 	if len(splitResource) < 2 || splitResource[0] != "assumed-role" {
 		return arn.ARN{}, fmt.Errorf("invalid resource: %s", input.Resource)
 	}
-	// Normalise to the actual role ARN, rather than an ARN showing how the
-	// credentials were obtained. This mirrors the way AWS policy documents are
-	// written.
 	return arn.ARN{
 		Partition: input.Partition,
 		Service:   "iam",
