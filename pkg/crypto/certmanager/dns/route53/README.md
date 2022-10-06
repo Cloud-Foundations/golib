@@ -9,6 +9,7 @@ This is an example policy document statement for Terraform:
   statement {
     actions = [
       "route53:ChangeResourceRecordSets",
+      "route53:ListResourceRecordSets",
     ]
 
     resources = [
