@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
-	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
+	"github.com/Cloud-Foundations/golib/pkg/git/repowatch"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
@@ -47,8 +47,11 @@ func newDB(config Config, logger log.DebugLogger) (*UserInfo, error) {
 	if config.RepositoryURL != "" {
 		metricsSubdir = repoRE.ReplaceAllString(config.RepositoryURL, "$1")
 	}
-	directoryChannel, err := repowatch.WatchWithConfig(config.Config,
-		filepath.Join("userinfo/gitdb", metricsSubdir), logger)
+	directoryChannel, err := repowatch.Watch(config.Config,
+		repowatch.Params{
+			Logger:          logger,
+			MetricDirectory: filepath.Join("userinfo/gitdb", metricsSubdir),
+		})
 	if err != nil {
 		return nil, err
 	}
