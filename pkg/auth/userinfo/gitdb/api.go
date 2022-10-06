@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Cloud-Foundations/Dominator/lib/repowatch"
+	"github.com/Cloud-Foundations/golib/pkg/git/repowatch"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
