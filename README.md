@@ -1,5 +1,5 @@
 # golib
-[![Build Status](https://travis-ci.org/Cloud-Foundations/golib.svg?branch=master)](https://travis-ci.org/Cloud-Foundations/golib)
+[![Build Status](https://github.com/Cloud-Foundations/golib/actions/workflows/test.yml/badge.svg?query=branch%3Amaster)](https://github.com/Cloud-Foundations/golib/actions/workflows/test.yml?query=branch%3Amaster)
 [![Coverage Status](https://coveralls.io/repos/github/Cloud-Foundations/golib/badge.svg?branch=master)](https://coveralls.io/github/Cloud-Foundations/golib?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Cloud-Foundations/golib)](https://goreportcard.com/report/github.com/Cloud-Foundations/golib)
 
