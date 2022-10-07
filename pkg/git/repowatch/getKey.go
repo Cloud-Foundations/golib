@@ -13,26 +13,86 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/log"
 
 	"github.com/Cloud-Foundations/Dominator/lib/fsutil"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	xssh "golang.org/x/crypto/ssh"
 )
 
-func awsGetKey(secretId string, logger log.DebugLogger) error {
-	if secretId == "" {
-		return nil
+// getAuth tries to find an SSH authentication method.
+// If secretId is specified, the SSH private key will be extracted from the
+// specified AWS Secrets Manager secret object, otherwise an SSH agent or local
+// keys will be tried.
+func getAuth(secretId string, logger log.DebugLogger) (
+	transport.AuthMethod, error) {
+	if secretId != "" {
+		return getAuthFromAWS(secretId, logger)
 	}
+	if os.Getenv("SSH_AUTH_SOCK") != "" {
+		if pkc, err := ssh.NewSSHAgentAuth(ssh.DefaultUsername); err != nil {
+			return nil, err
+		} else {
+			pkc.HostKeyCallbackHelper.HostKeyCallback =
+				xssh.InsecureIgnoreHostKey()
+			return pkc, nil
+		}
+	}
+	dirname := filepath.Join(os.Getenv("HOME"), ".ssh")
+	dirfile, err := os.Open(dirname)
+	if err != nil {
+		return nil, err
+	}
+	defer dirfile.Close()
+	names, err := dirfile.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+	var lastError error
+	for _, name := range names {
+		if !strings.HasPrefix(name, "id_") {
+			continue
+		}
+		if strings.HasSuffix(name, ".pub") {
+			continue
+		}
+		pubkeys, err := getAuthFromFile(filepath.Join(dirname, name))
+		if err == nil {
+			return pubkeys, nil
+		}
+		lastError = err
+	}
+	if lastError != nil {
+		return nil, lastError
+	}
+	return nil, fmt.Errorf("no usable SSH keys found in: %s", dirname)
+}
+
+func getAuthFromAWS(secretId string, logger log.DebugLogger) (
+	transport.AuthMethod, error) {
 	metadataClient, err := getMetadataClient()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	secrets, err := getAwsSecret(metadataClient, secretId)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := writeSshKey(secrets); err != nil {
-		return err
+	filename, err := writeSshKey(secrets)
+	if err != nil {
+		return nil, err
 	}
-	logger.Printf("fetched SSH key from AWS Secrets Manager, SecretId: %s\n",
-		secretId)
-	return nil
+	logger.Debugf(0,
+		"fetched SSH key from AWS Secrets Manager, SecretId: %s and wrote to: %s\n",
+		secretId, filename)
+	return getAuthFromFile(filename)
+}
+
+func getAuthFromFile(filename string) (transport.AuthMethod, error) {
+	pubkeys, err := ssh.NewPublicKeysFromFile(ssh.DefaultUsername, filename, "")
+	if err != nil {
+		return nil, err
+	}
+	pubkeys.HostKeyCallbackHelper.HostKeyCallback = xssh.InsecureIgnoreHostKey()
+	return pubkeys, nil
 }
 
 // keyMap is mutated.
@@ -61,10 +121,10 @@ func writeKeyAsPEM(writer io.Writer, keyMap map[string]string) error {
 }
 
 // keyMap is mutated.
-func writeSshKey(keyMap map[string]string) error {
+func writeSshKey(keyMap map[string]string) (string, error) {
 	dirname := filepath.Join(os.Getenv("HOME"), ".ssh")
 	if err := os.MkdirAll(dirname, 0700); err != nil {
-		return err
+		return "", err
 	}
 	var filename string
 	switch keyType := keyMap["KeyType"]; keyType {
@@ -73,16 +133,16 @@ func writeSshKey(keyMap map[string]string) error {
 	case "RSA":
 		filename = "id_rsa"
 	default:
-		return fmt.Errorf("unsupported key type: %s", keyType)
+		return "", fmt.Errorf("unsupported key type: %s", keyType)
 	}
 	writer, err := fsutil.CreateRenamingWriter(filepath.Join(dirname, filename),
 		fsutil.PrivateFilePerms)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := writeKeyAsPEM(writer, keyMap); err != nil {
 		writer.Abort()
-		return err
+		return "", err
 	}
-	return writer.Close()
+	return filename, writer.Close()
 }

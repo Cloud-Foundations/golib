@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
@@ -16,6 +17,12 @@ import (
 	"github.com/Cloud-Foundations/tricorder/go/tricorder/units"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+)
+
+var (
+	transportAuth     transport.AuthMethod
+	transportAuthLock sync.Mutex
 )
 
 type gitMetricsType struct {
@@ -39,7 +46,10 @@ func gitPull(repositoryDirectory string,
 	metrics *gitMetricsType) (string, error) {
 	worktree := &git.Worktree{Filesystem: osfs.New(repositoryDirectory)}
 	metrics.lastAttemptedPullTime = time.Now()
-	if err := worktree.Pull(&git.PullOptions{}); err != nil {
+	transportAuthLock.Lock()
+	pullOptions := &git.PullOptions{Auth: transportAuth}
+	transportAuthLock.Unlock()
+	if err := worktree.Pull(pullOptions); err != nil {
 		return "", err
 	}
 	metrics.lastSuccessfulPullTime = time.Now()
@@ -68,11 +78,14 @@ func setupGitRepository(remoteURL, localDirectory, awsSecretId string,
 			return "", err
 		}
 		metrics.lastAttemptedPullTime = time.Now()
-		if err := awsGetKey(awsSecretId, logger); err != nil {
+		pubkeys, err := getAuth(awsSecretId, logger)
+		if err != nil {
 			return "", err
 		}
-		_, err := git.PlainClone(localDirectory, false, &git.CloneOptions{
-			URL: remoteURL,
+		transportAuth = pubkeys
+		_, err = git.PlainClone(localDirectory, false, &git.CloneOptions{
+			Auth: transportAuth,
+			URL:  remoteURL,
 		})
 		if err != nil {
 			return "", err
@@ -82,10 +95,14 @@ func setupGitRepository(remoteURL, localDirectory, awsSecretId string,
 	} else {
 		go func() {
 			for {
-				if err := awsGetKey(awsSecretId, logger); err != nil {
+				pubkeys, err := getAuth(awsSecretId, logger)
+				if err != nil {
 					logger.Println(err)
 					time.Sleep(time.Minute * 5)
 				} else {
+					transportAuthLock.Lock()
+					transportAuth = pubkeys
+					transportAuthLock.Unlock()
 					return
 				}
 			}
