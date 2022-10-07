@@ -135,7 +135,8 @@ func writeSshKey(keyMap map[string]string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported key type: %s", keyType)
 	}
-	writer, err := fsutil.CreateRenamingWriter(filepath.Join(dirname, filename),
+	pathname := filepath.Join(dirname, filename)
+	writer, err := fsutil.CreateRenamingWriter(pathname,
 		fsutil.PrivateFilePerms)
 	if err != nil {
 		return "", err
@@ -144,5 +145,5 @@ func writeSshKey(keyMap map[string]string) (string, error) {
 		writer.Abort()
 		return "", err
 	}
-	return filename, writer.Close()
+	return pathname, writer.Close()
 }
