@@ -18,13 +18,16 @@ import (
 	xssh "golang.org/x/crypto/ssh"
 )
 
-func awsGetKey(secretId string, logger log.DebugLogger) (
+// getAuth tries to find an SSH authentication method.
+// If secretId is specified, the SSH private key will be extracted from the
+// specified AWS Secrets Manager secret object, otherwise an SSH agent or local
+// keys will be tried.
+func getAuth(secretId string, logger log.DebugLogger) (
 	transport.AuthMethod, error) {
-	if secretId == "" {
-		if os.Getenv("SSH_AUTH_SOCK") == "" {
-			logger.Debugln(0, "using default SSH configuration")
-			return nil, nil // Hope for the best.
-		}
+	if secretId != "" {
+		return getAuthFromAWS(secretId, logger)
+	}
+	if os.Getenv("SSH_AUTH_SOCK") != "" {
 		if pkc, err := ssh.NewSSHAgentAuth(ssh.DefaultUsername); err != nil {
 			return nil, err
 		} else {
@@ -33,6 +36,38 @@ func awsGetKey(secretId string, logger log.DebugLogger) (
 			return pkc, nil
 		}
 	}
+	dirname := filepath.Join(os.Getenv("HOME"), ".ssh")
+	dirfile, err := os.Open(dirname)
+	if err != nil {
+		return nil, err
+	}
+	defer dirfile.Close()
+	names, err := dirfile.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+	var lastError error
+	for _, name := range names {
+		if !strings.HasPrefix(name, "id_") {
+			continue
+		}
+		if strings.HasSuffix(name, ".pub") {
+			continue
+		}
+		pubkeys, err := getAuthFromFile(filepath.Join(dirname, name))
+		if err == nil {
+			return pubkeys, nil
+		}
+		lastError = err
+	}
+	if lastError != nil {
+		return nil, lastError
+	}
+	return nil, fmt.Errorf("no usable SSH keys found in: %s", dirname)
+}
+
+func getAuthFromAWS(secretId string, logger log.DebugLogger) (
+	transport.AuthMethod, error) {
 	metadataClient, err := getMetadataClient()
 	if err != nil {
 		return nil, err
@@ -48,6 +83,10 @@ func awsGetKey(secretId string, logger log.DebugLogger) (
 	logger.Debugf(0,
 		"fetched SSH key from AWS Secrets Manager, SecretId: %s and wrote to: %s\n",
 		secretId, filename)
+	return getAuthFromFile(filename)
+}
+
+func getAuthFromFile(filename string) (transport.AuthMethod, error) {
 	pubkeys, err := ssh.NewPublicKeysFromFile(ssh.DefaultUsername, filename, "")
 	if err != nil {
 		return nil, err
