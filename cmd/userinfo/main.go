@@ -11,6 +11,8 @@ import (
 )
 
 var (
+	awsSecretId = flag.String("awsSecretId", "",
+		"If specified, fetch the SSH key from the AWS secret object")
 	ignoreErrors = flag.Bool("ignoreErrors", false,
 		"If true, ignore errors in the DB")
 )

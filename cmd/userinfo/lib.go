@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/auth/userinfo/gitdb"
+	"github.com/Cloud-Foundations/golib/pkg/git/repowatch"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
 
@@ -24,5 +25,10 @@ func getDB(source string, logger log.DebugLogger) (*gitdb.UserInfo, error) {
 		}
 		defer os.RemoveAll(tmpdir)
 	}
-	return gitdb.New(source, "", tmpdir, time.Hour, logger)
+	return gitdb.NewWithConfig(gitdb.Config{Config: repowatch.Config{
+		AwsSecretId:              *awsSecretId,
+		CheckInterval:            time.Hour,
+		LocalRepositoryDirectory: tmpdir,
+		RepositoryURL:            source,
+	}}, logger)
 }
