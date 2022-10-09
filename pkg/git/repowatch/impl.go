@@ -1,6 +1,7 @@
 package repowatch
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +16,8 @@ import (
 	"github.com/Cloud-Foundations/Dominator/lib/fsutil"
 	"github.com/Cloud-Foundations/tricorder/go/tricorder"
 	"github.com/Cloud-Foundations/tricorder/go/tricorder/units"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
@@ -67,37 +70,42 @@ func readLatestCommitId(repositoryDirectory string) (string, error) {
 	return strings.TrimSpace(string(commitId)), nil
 }
 
-func setupGitRepository(remoteURL, localDirectory, awsSecretId string,
-	metrics *gitMetricsType, logger log.DebugLogger) (string, error) {
-	if err := os.MkdirAll(localDirectory, fsutil.DirPerms); err != nil {
+func setupGitRepository(ctx context.Context, config Config, params Params,
+	metrics *gitMetricsType) (string, error) {
+	err := os.MkdirAll(config.LocalRepositoryDirectory, fsutil.DirPerms)
+	if err != nil {
 		return "", err
 	}
-	gitSubdir := filepath.Join(localDirectory, ".git")
+	gitSubdir := filepath.Join(config.LocalRepositoryDirectory, ".git")
 	if _, err := os.Stat(gitSubdir); err != nil {
 		if !os.IsNotExist(err) {
 			return "", err
 		}
 		metrics.lastAttemptedPullTime = time.Now()
-		pubkeys, err := getAuth(awsSecretId, logger)
+		pubkeys, err := getAuth(ctx, params.SecretsClient, config.AwsSecretId,
+			params.Logger)
 		if err != nil {
 			return "", err
 		}
 		transportAuth = pubkeys
-		_, err = git.PlainClone(localDirectory, false, &git.CloneOptions{
-			Auth: transportAuth,
-			URL:  remoteURL,
-		})
+		_, err = git.PlainClone(config.LocalRepositoryDirectory, false,
+			&git.CloneOptions{
+				Auth: transportAuth,
+				URL:  config.RepositoryURL,
+			})
 		if err != nil {
 			return "", err
 		}
 		metrics.lastSuccessfulPullTime = time.Now()
-		return readLatestCommitId(localDirectory)
+		return readLatestCommitId(config.LocalRepositoryDirectory)
 	} else {
 		go func() {
+			ctx := context.Background()
 			for {
-				pubkeys, err := getAuth(awsSecretId, logger)
+				pubkeys, err := getAuth(ctx, params.SecretsClient,
+					config.AwsSecretId, params.Logger)
 				if err != nil {
-					logger.Println(err)
+					params.Logger.Println(err)
 					time.Sleep(time.Minute * 5)
 				} else {
 					transportAuthLock.Lock()
@@ -108,9 +116,10 @@ func setupGitRepository(remoteURL, localDirectory, awsSecretId string,
 			}
 		}()
 		// Try to be as fresh as possible.
-		if commitId, err := gitPull(localDirectory, metrics); err != nil {
-			logger.Println(err)
-			return readLatestCommitId(localDirectory)
+		commitId, err := gitPull(config.LocalRepositoryDirectory, metrics)
+		if err != nil {
+			params.Logger.Println(err)
+			return readLatestCommitId(config.LocalRepositoryDirectory)
 		} else {
 			return commitId, nil
 		}
@@ -128,72 +137,81 @@ func watch(config Config, params Params) (<-chan string, error) {
 		return watchLocal(config.LocalRepositoryDirectory, config.CheckInterval,
 			params.MetricDirectory, params.Logger)
 	}
-	return watchGit(config.RepositoryURL, config.LocalRepositoryDirectory,
-		config.AwsSecretId, config.CheckInterval, params.MetricDirectory,
-		params.Logger)
+	return watchGit(config, params)
 }
 
-func watchGit(remoteURL, localDirectory, awsSecretId string,
-	checkInterval time.Duration, metricDirectory string,
-	logger log.DebugLogger) (<-chan string, error) {
+func watchGit(config Config, params Params) (<-chan string, error) {
 	notificationChannel := make(chan string, 1)
 	metrics := &gitMetricsType{
 		latencyDistribution: tricorder.NewGeometricBucketer(1, 1e5).
 			NewCumulativeDistribution(),
 	}
-	err := tricorder.RegisterMetric(filepath.Join(metricDirectory,
+	err := tricorder.RegisterMetric(filepath.Join(params.MetricDirectory,
 		"git-pull-latency"), metrics.latencyDistribution,
 		units.Millisecond, "latency of git pull calls")
 	if err != nil {
 		return nil, err
 	}
-	metrics.lastCommitId, err = setupGitRepository(remoteURL, localDirectory,
-		awsSecretId, metrics, logger)
+	ctx := context.TODO()
+	if config.AwsSecretId != "" {
+		if params.SecretsClient == nil {
+			if params.AwsConfig == nil {
+				awsConfig, err := awsconfig.LoadDefaultConfig(ctx,
+					awsconfig.WithEC2IMDSRegion())
+				if err != nil {
+					return nil, err
+				}
+				params.AwsConfig = &awsConfig
+			}
+			params.SecretsClient = secretsmanager.NewFromConfig(
+				*params.AwsConfig)
+		}
+	}
+	metrics.lastCommitId, err = setupGitRepository(ctx, config, params, metrics)
 	if err != nil {
 		return nil, err
 	}
-	err = tricorder.RegisterMetric(filepath.Join(metricDirectory,
+	err = tricorder.RegisterMetric(filepath.Join(params.MetricDirectory,
 		"last-attempted-git-pull-time"), &metrics.lastAttemptedPullTime,
 		units.None, "time of last attempted git pull")
 	if err != nil {
 		return nil, err
 	}
-	err = tricorder.RegisterMetric(filepath.Join(metricDirectory,
+	err = tricorder.RegisterMetric(filepath.Join(params.MetricDirectory,
 		"last-commit-id"), &metrics.lastCommitId,
 		units.None, "commit ID in master branch in  last successful git pull")
 	if err != nil {
 		return nil, err
 	}
-	err = tricorder.RegisterMetric(filepath.Join(metricDirectory,
+	err = tricorder.RegisterMetric(filepath.Join(params.MetricDirectory,
 		"last-successful-git-pull-time"), &metrics.lastSuccessfulPullTime,
 		units.None, "time of last successful git pull")
 	if err != nil {
 		return nil, err
 	}
-	err = tricorder.RegisterMetric(filepath.Join(metricDirectory,
+	err = tricorder.RegisterMetric(filepath.Join(params.MetricDirectory,
 		"last-notification-time"), &metrics.lastNotificationTime, units.None,
 		"time of last git change notification")
 	if err != nil {
 		return nil, err
 	}
 	metrics.lastNotificationTime = time.Now()
-	notificationChannel <- localDirectory
-	go watchGitLoop(localDirectory, checkInterval, metrics, notificationChannel,
-		logger)
+	notificationChannel <- config.LocalRepositoryDirectory
+	go watchGitLoop(config, params, metrics, notificationChannel)
 	return notificationChannel, nil
 }
 
-func watchGitLoop(directory string, checkInterval time.Duration,
-	metrics *gitMetricsType, notificationChannel chan<- string,
-	logger log.DebugLogger) {
+func watchGitLoop(config Config, params Params, metrics *gitMetricsType,
+	notificationChannel chan<- string) {
 	for {
-		time.Sleep(checkInterval)
-		if commitId, err := gitPull(directory, metrics); err != nil {
-			logger.Println(err)
+		time.Sleep(config.CheckInterval)
+		commitId, err := gitPull(config.LocalRepositoryDirectory, metrics)
+		if err != nil {
+			params.Logger.Println(err)
 		} else if commitId != metrics.lastCommitId {
 			metrics.lastCommitId = commitId
 			metrics.lastNotificationTime = time.Now()
-			notificationChannel <- directory
+			notificationChannel <- config.LocalRepositoryDirectory
 		}
 	}
 }
