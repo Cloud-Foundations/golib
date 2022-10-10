@@ -18,7 +18,6 @@ import (
 	"github.com/Cloud-Foundations/tricorder/go/tricorder/units"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 )
@@ -45,15 +44,16 @@ func checkDirectory(directory string) error {
 	return nil
 }
 
-func gitPull(repositoryDirectory string,
+func gitPull(worktree *git.Worktree, repositoryDirectory string,
 	metrics *gitMetricsType) (string, error) {
-	worktree := &git.Worktree{Filesystem: osfs.New(repositoryDirectory)}
 	metrics.lastAttemptedPullTime = time.Now()
 	transportAuthLock.Lock()
 	pullOptions := &git.PullOptions{Auth: transportAuth}
 	transportAuthLock.Unlock()
 	if err := worktree.Pull(pullOptions); err != nil {
-		return "", err
+		if err != git.NoErrAlreadyUpToDate {
+			return "", err
+		}
 	}
 	metrics.lastSuccessfulPullTime = time.Now()
 	metrics.latencyDistribution.Add(
@@ -71,34 +71,47 @@ func readLatestCommitId(repositoryDirectory string) (string, error) {
 }
 
 func setupGitRepository(ctx context.Context, config Config, params Params,
-	metrics *gitMetricsType) (string, error) {
+	metrics *gitMetricsType) (*git.Worktree, string, error) {
 	err := os.MkdirAll(config.LocalRepositoryDirectory, fsutil.DirPerms)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	gitSubdir := filepath.Join(config.LocalRepositoryDirectory, ".git")
 	if _, err := os.Stat(gitSubdir); err != nil {
 		if !os.IsNotExist(err) {
-			return "", err
+			return nil, "", err
 		}
 		metrics.lastAttemptedPullTime = time.Now()
 		pubkeys, err := getAuth(ctx, params.SecretsClient, config.AwsSecretId,
 			params.Logger)
 		if err != nil {
-			return "", err
+			return nil, "", err
 		}
 		transportAuth = pubkeys
-		_, err = git.PlainClone(config.LocalRepositoryDirectory, false,
+		repo, err := git.PlainClone(config.LocalRepositoryDirectory, false,
 			&git.CloneOptions{
 				Auth: transportAuth,
 				URL:  config.RepositoryURL,
 			})
 		if err != nil {
-			return "", err
+			return nil, "", err
+		}
+		worktree, err := repo.Worktree()
+		if err != nil {
+			return nil, "", err
 		}
 		metrics.lastSuccessfulPullTime = time.Now()
-		return readLatestCommitId(config.LocalRepositoryDirectory)
+		lastCommitId, err := readLatestCommitId(config.LocalRepositoryDirectory)
+		return worktree, lastCommitId, err
 	} else {
+		repo, err := git.PlainOpen(config.LocalRepositoryDirectory)
+		if err != nil {
+			return nil, "", err
+		}
+		worktree, err := repo.Worktree()
+		if err != nil {
+			return nil, "", err
+		}
 		go func() {
 			ctx := context.Background()
 			for {
@@ -116,12 +129,15 @@ func setupGitRepository(ctx context.Context, config Config, params Params,
 			}
 		}()
 		// Try to be as fresh as possible.
-		commitId, err := gitPull(config.LocalRepositoryDirectory, metrics)
+		commitId, err := gitPull(worktree, config.LocalRepositoryDirectory,
+			metrics)
 		if err != nil {
 			params.Logger.Println(err)
-			return readLatestCommitId(config.LocalRepositoryDirectory)
+			lastCommitId, err := readLatestCommitId(
+				config.LocalRepositoryDirectory)
+			return worktree, lastCommitId, err
 		} else {
-			return commitId, nil
+			return worktree, commitId, nil
 		}
 	}
 }
@@ -167,7 +183,9 @@ func watchGit(config Config, params Params) (<-chan string, error) {
 				*params.AwsConfig)
 		}
 	}
-	metrics.lastCommitId, err = setupGitRepository(ctx, config, params, metrics)
+	var worktree *git.Worktree
+	worktree, metrics.lastCommitId, err = setupGitRepository(ctx, config,
+		params, metrics)
 	if err != nil {
 		return nil, err
 	}
@@ -197,15 +215,17 @@ func watchGit(config Config, params Params) (<-chan string, error) {
 	}
 	metrics.lastNotificationTime = time.Now()
 	notificationChannel <- config.LocalRepositoryDirectory
-	go watchGitLoop(config, params, metrics, notificationChannel)
+	go watchGitLoop(worktree, config, params, metrics, notificationChannel)
 	return notificationChannel, nil
 }
 
-func watchGitLoop(config Config, params Params, metrics *gitMetricsType,
+func watchGitLoop(worktree *git.Worktree, config Config, params Params,
+	metrics *gitMetricsType,
 	notificationChannel chan<- string) {
 	for {
 		time.Sleep(config.CheckInterval)
-		commitId, err := gitPull(config.LocalRepositoryDirectory, metrics)
+		commitId, err := gitPull(worktree, config.LocalRepositoryDirectory,
+			metrics)
 		if err != nil {
 			params.Logger.Println(err)
 		} else if commitId != metrics.lastCommitId {
