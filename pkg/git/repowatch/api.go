@@ -4,6 +4,9 @@ import (
 	"time"
 
 	"github.com/Cloud-Foundations/golib/pkg/log"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 )
 
 // Config specifies the configuration.
@@ -20,7 +23,9 @@ type Params struct {
 	// Mandatory parameters.
 	Logger log.DebugLogger
 	// Optional parameters.
+	AwsConfig       *aws.Config
 	MetricDirectory string
+	SecretsClient   *secretsmanager.Client
 }
 
 func Watch(config Config, params Params) (<-chan string, error) {

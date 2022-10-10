@@ -1,6 +1,7 @@
 package repowatch
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"github.com/Cloud-Foundations/golib/pkg/log"
 
 	"github.com/Cloud-Foundations/Dominator/lib/fsutil"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	xssh "golang.org/x/crypto/ssh"
@@ -22,10 +24,10 @@ import (
 // If secretId is specified, the SSH private key will be extracted from the
 // specified AWS Secrets Manager secret object, otherwise an SSH agent or local
 // keys will be tried.
-func getAuth(secretId string, logger log.DebugLogger) (
-	transport.AuthMethod, error) {
+func getAuth(ctx context.Context, secretsClient *secretsmanager.Client,
+	secretId string, logger log.DebugLogger) (transport.AuthMethod, error) {
 	if secretId != "" {
-		return getAuthFromAWS(secretId, logger)
+		return getAuthFromAWS(ctx, secretsClient, secretId, logger)
 	}
 	if os.Getenv("SSH_AUTH_SOCK") != "" {
 		if pkc, err := ssh.NewSSHAgentAuth(ssh.DefaultUsername); err != nil {
@@ -66,13 +68,10 @@ func getAuth(secretId string, logger log.DebugLogger) (
 	return nil, fmt.Errorf("no usable SSH keys found in: %s", dirname)
 }
 
-func getAuthFromAWS(secretId string, logger log.DebugLogger) (
+func getAuthFromAWS(ctx context.Context, secretsClient *secretsmanager.Client,
+	secretId string, logger log.DebugLogger) (
 	transport.AuthMethod, error) {
-	metadataClient, err := getMetadataClient()
-	if err != nil {
-		return nil, err
-	}
-	secrets, err := getAwsSecret(metadataClient, secretId)
+	secrets, err := getAwsSecret(ctx, secretsClient, secretId)
 	if err != nil {
 		return nil, err
 	}
