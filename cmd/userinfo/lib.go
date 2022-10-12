@@ -25,10 +25,13 @@ func getDB(source string, logger log.DebugLogger) (*gitdb.UserInfo, error) {
 		}
 		defer os.RemoveAll(tmpdir)
 	}
-	return gitdb.NewWithConfig(gitdb.Config{Config: repowatch.Config{
+	return gitdb.New2(gitdb.Config{Config: repowatch.Config{
 		AwsSecretId:              *awsSecretId,
 		CheckInterval:            time.Hour,
 		LocalRepositoryDirectory: tmpdir,
 		RepositoryURL:            source,
-	}}, logger)
+	}},
+		gitdb.Params{Params: repowatch.Params{
+			Logger: logger,
+		}})
 }
