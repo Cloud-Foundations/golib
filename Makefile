@@ -1,5 +1,5 @@
 all:
-	@cd $(GOPATH)/src; go install github.com/Cloud-Foundations/golib/cmd/*
+	go install ./cmd/*
 
 format:
 	gofmt -s -w .
