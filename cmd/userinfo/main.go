@@ -7,7 +7,7 @@ import (
 
 	"github.com/Cloud-Foundations/Dominator/lib/flags/commands"
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
-	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
+	"github.com/Cloud-Foundations/golib/pkg/log/cmdlogger"
 )
 
 var (
@@ -45,7 +45,7 @@ func doMain() int {
 		printUsage()
 		return 3
 	}
-	logger := cmdlogger.New()
+	logger := cmdlogger.New(cmdlogger.GetStandardOptions())
 	return commands.RunCommands(subcommands, printUsage, logger)
 }
 

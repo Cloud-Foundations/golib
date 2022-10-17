@@ -9,10 +9,10 @@ import (
 	"syscall"
 
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
-	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager"
 	"github.com/Cloud-Foundations/golib/pkg/crypto/certmanager/storage/awssecretsmanager"
 	"github.com/Cloud-Foundations/golib/pkg/log"
+	"github.com/Cloud-Foundations/golib/pkg/log/cmdlogger"
 )
 
 var (
@@ -31,7 +31,7 @@ func doMain() int {
 		printUsage()
 		return 3
 	}
-	logger := cmdlogger.New()
+	logger := cmdlogger.New(cmdlogger.GetStandardOptions())
 	if err := runLocker(logger); err != nil {
 		logger.Println(err)
 		return 1
