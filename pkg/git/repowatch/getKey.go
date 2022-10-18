@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,11 +21,33 @@ import (
 	xssh "golang.org/x/crypto/ssh"
 )
 
-// getAuth tries to find an SSH authentication method.
+func isHttpRepo(repoURL string) bool {
+	parsedURL, err := url.Parse(repoURL)
+	if err != nil {
+		return false
+	}
+	if strings.HasPrefix(parsedURL.Scheme, "http") {
+		return true
+	}
+	return false
+}
+
+func getAuth(ctx context.Context, repoURL string, secretsClient *secretsmanager.Client,
+	secretId string, logger log.DebugLogger) (transport.AuthMethod, error) {
+	if isHttpRepo(repoURL) {
+		// TODO: we actually want to fetch creds from AWS or other method
+		// for plain https creds.
+		return nil, nil
+	}
+
+	return getAuthSSH(ctx, secretsClient, secretId, logger)
+}
+
+// getAuthSSH tries to find an SSH authentication method.
 // If secretId is specified, the SSH private key will be extracted from the
 // specified AWS Secrets Manager secret object, otherwise an SSH agent or local
 // keys will be tried.
-func getAuth(ctx context.Context, secretsClient *secretsmanager.Client,
+func getAuthSSH(ctx context.Context, secretsClient *secretsmanager.Client,
 	secretId string, logger log.DebugLogger) (transport.AuthMethod, error) {
 	if secretId != "" {
 		return getAuthFromAWS(ctx, secretsClient, secretId, logger)
