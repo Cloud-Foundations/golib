@@ -82,14 +82,12 @@ func setupGitRepository(ctx context.Context, config Config, params Params,
 			return nil, "", err
 		}
 		metrics.lastAttemptedPullTime = time.Now()
-
 		pubkeys, err := getAuth(ctx, config.RepositoryURL, params.SecretsClient, config.AwsSecretId,
 			params.Logger)
 		if err != nil {
 			return nil, "", err
 		}
 		transportAuth = pubkeys
-
 		repo, err := git.PlainClone(config.LocalRepositoryDirectory, false,
 			&git.CloneOptions{
 				Auth: transportAuth,

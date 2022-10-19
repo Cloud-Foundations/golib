@@ -32,6 +32,10 @@ func isHttpRepo(repoURL string) bool {
 	return false
 }
 
+// getAuthSSH will return with a null authentication on http repositories, and
+// for ssh repostories it  tries to find an SSH authentication method.
+// The ssh authenticaiton methods are AWS secrets manager, an SSH agent or
+// local ssh keys.
 func getAuth(ctx context.Context, repoURL string, secretsClient *secretsmanager.Client,
 	secretId string, logger log.DebugLogger) (transport.AuthMethod, error) {
 	if isHttpRepo(repoURL) {
@@ -39,7 +43,6 @@ func getAuth(ctx context.Context, repoURL string, secretsClient *secretsmanager.
 		// for plain https creds.
 		return nil, nil
 	}
-
 	return getAuthSSH(ctx, secretsClient, secretId, logger)
 }
 
