@@ -32,7 +32,7 @@ func isHttpRepo(repoURL string) bool {
 	return false
 }
 
-// getAuthSSH will return with a null authentication on http repositories, and
+// getAuth will return with a null authentication on http repositories, and
 // for ssh repostories it  tries to find an SSH authentication method.
 // The ssh authenticaiton methods are AWS secrets manager, an SSH agent or
 // local ssh keys.
