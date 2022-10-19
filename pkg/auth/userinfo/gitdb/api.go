@@ -12,6 +12,10 @@ type Config struct {
 	repowatch.Config `yaml:",inline"`
 }
 
+type Params struct {
+	repowatch.Params
+}
+
 type UserInfo struct {
 	logger        log.DebugLogger
 	rwMutex       sync.RWMutex                   // Protect everything below.
@@ -19,13 +23,7 @@ type UserInfo struct {
 	usersPerGroup map[string]map[string]struct{} // K: groupname, V: usernames.
 }
 
-// New opens a *UserInfo database using Git as the backing store. It will
-// periodically pull from the remote repository specified by repositoryURL and
-// cache a local copy in the localRepositoryDir. If repositoryURL is empty then
-// only the local repository is used.
-// The specified branch is read to extract the database.
-// The databse is checked every checkInterval for updates.
-// Any problems with fetching or updating the database are sent to the logger.
+// New is a deprecated interface. Use New2 instead.
 func New(repositoryURL, branch, localRepositoryDir string,
 	checkInterval time.Duration, logger log.DebugLogger) (
 	*UserInfo, error) {
@@ -34,11 +32,28 @@ func New(repositoryURL, branch, localRepositoryDir string,
 		CheckInterval:            checkInterval,
 		LocalRepositoryDirectory: localRepositoryDir,
 		RepositoryURL:            repositoryURL,
-	}}, logger)
+	}},
+		Params{Params: repowatch.Params{
+			Logger: logger,
+		}},
+	)
 }
 
+// NewWithConfig is a deprecated interface. Use New2 instead.
 func NewWithConfig(config Config, logger log.DebugLogger) (*UserInfo, error) {
-	return newDB(config, logger)
+	return newDB(config, Params{Params: repowatch.Params{Logger: logger}})
+}
+
+// New opens a *UserInfo database using Git as the backing store. It will
+// periodically pull from the remote repository specified by
+// config.RepositoryURL and cache a local copy in the
+// config.LocalRepositoryDirectory. If config.RepositoryURL is empty then
+// only the local repository is used.
+// The specified config.Branch is read to extract the database.
+// The databse is checked every config.CheckInterval for updates.
+// Any problems with fetching or updating the database are sent to the logger.
+func New2(config Config, params Params) (*UserInfo, error) {
+	return newDB(config, params)
 }
 
 func (uinfo *UserInfo) GetGroups() ([]string, error) {

@@ -39,23 +39,22 @@ func addUserList(addTo, addFrom map[string]struct{}) {
 	}
 }
 
-func newDB(config Config, logger log.DebugLogger) (*UserInfo, error) {
+func newDB(config Config, params Params) (*UserInfo, error) {
 	if config.Branch != "" && config.Branch != "master" {
 		return nil, errors.New("non-master branch not supported")
 	}
-	metricsSubdir := config.LocalRepositoryDirectory
-	if config.RepositoryURL != "" {
-		metricsSubdir = repoRE.ReplaceAllString(config.RepositoryURL, "$1")
+	if params.MetricDirectory == "" {
+		metricsSubdir := config.LocalRepositoryDirectory
+		if config.RepositoryURL != "" {
+			metricsSubdir = repoRE.ReplaceAllString(config.RepositoryURL, "$1")
+		}
+		params.MetricDirectory = filepath.Join("userinfo/gitdb", metricsSubdir)
 	}
-	directoryChannel, err := repowatch.Watch(config.Config,
-		repowatch.Params{
-			Logger:          logger,
-			MetricDirectory: filepath.Join("userinfo/gitdb", metricsSubdir),
-		})
+	directoryChannel, err := repowatch.Watch(config.Config, params.Params)
 	if err != nil {
 		return nil, err
 	}
-	userInfo := &UserInfo{logger: logger}
+	userInfo := &UserInfo{logger: params.Logger}
 	// Consume initial notification to ensure DB is populated before returning.
 	if err := userInfo.loadDatabase(<-directoryChannel); err != nil {
 		userInfo.logger.Println(err)
