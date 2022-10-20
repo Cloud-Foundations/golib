@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
 	"github.com/Cloud-Foundations/golib/pkg/awsutil/presignauth/caller"
 	"github.com/Cloud-Foundations/golib/pkg/awsutil/presignauth/presigner"
+	"github.com/Cloud-Foundations/golib/pkg/log/cmdlogger"
 )
 
 func printUsage() {
@@ -20,7 +20,7 @@ func printUsage() {
 func doMain() error {
 	flag.Usage = printUsage
 	flag.Parse()
-	logger := cmdlogger.New()
+	logger := cmdlogger.New(cmdlogger.GetStandardOptions())
 	presignerClient, err := presigner.New(presigner.Params{
 		Logger: logger,
 	})

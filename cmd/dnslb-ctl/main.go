@@ -10,8 +10,8 @@ import (
 	"github.com/Cloud-Foundations/Dominator/lib/decoders"
 	"github.com/Cloud-Foundations/Dominator/lib/flags/commands"
 	"github.com/Cloud-Foundations/Dominator/lib/flags/loadflags"
-	"github.com/Cloud-Foundations/Dominator/lib/log/cmdlogger"
 	"github.com/Cloud-Foundations/golib/pkg/loadbalancing/dnslb/config"
+	"github.com/Cloud-Foundations/golib/pkg/log/cmdlogger"
 
 	"gopkg.in/yaml.v2"
 )
@@ -51,7 +51,7 @@ func doMain() int {
 	}
 	flag.Usage = printUsage
 	flag.Parse()
-	logger := cmdlogger.New()
+	logger := cmdlogger.New(cmdlogger.GetStandardOptions())
 	if *configFile == "" {
 		fmt.Fprintln(os.Stderr, "no configuration file specified")
 		return 1
