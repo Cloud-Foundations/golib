@@ -1,6 +1,7 @@
 [
     {
         "Name": "team0",
+        "ServiceMethods": ["FooServer.Shutdown"],
         "UserMembers": [
             "userA",
             "userc"
@@ -9,7 +10,8 @@
     {
         "Name": "team1",
         "UserMembers": [
-            "userB"
+            "userB",
+            "userc"
         ]
     }
 ]

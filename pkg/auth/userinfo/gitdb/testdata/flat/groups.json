@@ -9,10 +9,12 @@
         "GroupMembers": [
             "team1"
         ],
-        "Name": "project1"
+        "Name": "project1",
+        "ServiceMethods": ["BarServer.Reboot"]
     },
     {
         "Name": "team0",
+        "ServiceMethods": ["FooServer.Shutdown"],
         "UserMembers": [
             "userA",
             "userc"
@@ -21,7 +23,8 @@
     {
         "Name": "team1",
         "UserMembers": [
-            "userB"
+            "userB",
+            "userc"
         ]
     },
     {
