@@ -30,7 +30,9 @@ var subcommands = []commands.Command{
 	{"diff-users-groups", "difftool source1 source2", 3, 3,
 		diffUsersGroupsSubcommand},
 	{"list-group", "source group", 2, 2, listGroupSubcommand},
+	{"list-group-methods", "source group", 2, 2, listGroupMethodsSubcommand},
 	{"list-users", "source", 1, 1, listUsersSubcommand},
+	{"list-user-methods", "source username", 2, 2, listUserMethodsSubcommand},
 	{"show-user-groups", "source username", 2, 2, showUserGroupsSubcommand},
 }
 
