@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Cloud-Foundations/golib/pkg/auth/userinfo"
 	"github.com/Cloud-Foundations/golib/pkg/git/repowatch"
 	"github.com/Cloud-Foundations/golib/pkg/log"
 )
@@ -28,6 +29,13 @@ type UserInfo struct {
 	groupMethods  map[string][]serviceMethod     // K: groupname.
 	usersPerGroup map[string]map[string]struct{} // K: groupname, V: usernames.
 }
+
+// Interface checks to ensure we don't regress.
+var (
+	_ userinfo.GroupServiceMethodsGetter = (*UserInfo)(nil)
+	_ userinfo.UserInfo                  = (*UserInfo)(nil)
+	_ userinfo.UserServiceMethodsGetter  = (*UserInfo)(nil)
+)
 
 // New is a deprecated interface. Use New2 instead.
 func New(repositoryURL, branch, localRepositoryDir string,
