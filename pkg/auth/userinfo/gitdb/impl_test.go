@@ -153,6 +153,6 @@ func (uinfo *UserInfo) testUserC(t *testing.T) {
 	} else if sm[0] != "BarServer.Reboot" {
 		t.Fatalf("userc has bad ServiceMethod: %s", sm[0])
 	} else if sm[1] != "FooServer.Shutdown" {
-		t.Fatalf("userc has bad ServiceMethod: %s", sm[0])
+		t.Fatalf("userc has bad ServiceMethod: %s", sm[1])
 	}
 }
