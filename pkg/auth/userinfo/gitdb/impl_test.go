@@ -44,17 +44,21 @@ func (uinfo *UserInfo) testDB(t *testing.T) {
 	}
 	if sm, err := uinfo.GetGroupServiceMethods("project1"); err != nil {
 		t.Fatal(err)
-	} else if length := len(sm); length != 1 {
+	} else if length := len(sm); length != 2 {
 		t.Fatalf("project1 has %d ServiceMethods", length)
 	} else if sm[0] != "BarServer.Reboot" {
 		t.Fatalf("project1 has bad ServiceMethod: %s", sm[0])
+	} else if sm[1] != "MultiServer.FuncOne" {
+		t.Fatalf("project1 has bad ServiceMethod: %s", sm[1])
 	}
 	if sm, err := uinfo.GetGroupServiceMethods("team0"); err != nil {
 		t.Fatal(err)
-	} else if length := len(sm); length != 1 {
+	} else if length := len(sm); length != 2 {
 		t.Fatalf("team0 has %d ServiceMethods", length)
 	} else if sm[0] != "FooServer.Shutdown" {
 		t.Fatalf("team0 has bad ServiceMethod: %s", sm[0])
+	} else if sm[1] != "MultiServer.*" {
+		t.Fatalf("team0 has bad ServiceMethod: %s", sm[1])
 	}
 	if sm, err := uinfo.GetGroupServiceMethods("team1"); err != nil {
 		t.Fatal(err)
@@ -64,6 +68,8 @@ func (uinfo *UserInfo) testDB(t *testing.T) {
 	uinfo.testUserA(t)
 	uinfo.testUserB(t)
 	uinfo.testUserC(t)
+	uinfo.testUserD(t)
+	uinfo.testUserE(t)
 }
 
 func (uinfo *UserInfo) testUserA(t *testing.T) {
@@ -99,10 +105,12 @@ func (uinfo *UserInfo) testUserA(t *testing.T) {
 			len(groups))
 	} else if sm, err := uinfo.GetUserServiceMethods("usera"); err != nil {
 		t.Fatal(err)
-	} else if length := len(sm); length != 1 {
+	} else if length := len(sm); length != 2 {
 		t.Fatalf("usera has %d ServiceMethods", length)
 	} else if sm[0] != "FooServer.Shutdown" {
 		t.Fatalf("usera has bad ServiceMethod: %s", sm[0])
+	} else if sm[1] != "MultiServer.*" {
+		t.Fatalf("usera has bad ServiceMethod: %s", sm[1])
 	}
 }
 
@@ -117,10 +125,12 @@ func (uinfo *UserInfo) testUserB(t *testing.T) {
 		t.Fatalf("userb in %d groups, expected 2", len(groups))
 	} else if sm, err := uinfo.GetUserServiceMethods("userb"); err != nil {
 		t.Fatal(err)
-	} else if length := len(sm); length != 1 {
+	} else if length := len(sm); length != 2 {
 		t.Fatalf("userb has %d ServiceMethods", length)
 	} else if sm[0] != "BarServer.Reboot" {
 		t.Fatalf("userb has bad ServiceMethod: %s", sm[0])
+	} else if sm[1] != "MultiServer.FuncOne" {
+		t.Fatalf("userb has bad ServiceMethod: %s", sm[1])
 	}
 }
 
@@ -148,11 +158,35 @@ func (uinfo *UserInfo) testUserC(t *testing.T) {
 			len(groups))
 	} else if sm, err := uinfo.GetUserServiceMethods("userc"); err != nil {
 		t.Fatal(err)
-	} else if length := len(sm); length != 2 {
+	} else if length := len(sm); length != 3 {
 		t.Fatalf("userc has %d ServiceMethods", length)
 	} else if sm[0] != "BarServer.Reboot" {
 		t.Fatalf("userc has bad ServiceMethod: %s", sm[0])
 	} else if sm[1] != "FooServer.Shutdown" {
 		t.Fatalf("userc has bad ServiceMethod: %s", sm[1])
+	} else if sm[2] != "MultiServer.*" {
+		t.Fatalf("userc has bad ServiceMethod: %s", sm[2])
+	}
+}
+
+func (uinfo *UserInfo) testUserD(t *testing.T) {
+	if sm, err := uinfo.GetUserServiceMethods("userd"); err != nil {
+		t.Fatal(err)
+	} else if length := len(sm); length != 1 {
+		t.Fatalf("userd has %d ServiceMethods", length)
+	} else if sm[0] != "*.*" {
+		t.Fatalf("userd has bad ServiceMethod: %s", sm[0])
+	}
+}
+
+func (uinfo *UserInfo) testUserE(t *testing.T) {
+	if sm, err := uinfo.GetUserServiceMethods("usere"); err != nil {
+		t.Fatal(err)
+	} else if length := len(sm); length != 2 {
+		t.Fatalf("usere has %d ServiceMethods", length)
+	} else if sm[0] != "*.Reboot" {
+		t.Fatalf("usere has bad ServiceMethod: %s", sm[0])
+	} else if sm[1] != "MultiServer.FuncOne" {
+		t.Fatalf("usere has bad ServiceMethod: %s", sm[1])
 	}
 }

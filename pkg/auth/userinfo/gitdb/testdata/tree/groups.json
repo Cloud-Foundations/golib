@@ -10,7 +10,10 @@
             "team1"
         ],
         "Name": "project1",
-        "ServiceMethods": ["BarServer.Reboot"]
+        "ServiceMethods": [
+            "BarServer.Reboot",
+            "MultiServer.FuncOne"
+        ]
     },
     {
         "Name": "unpermitted0",

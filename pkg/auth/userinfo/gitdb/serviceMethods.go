@@ -24,22 +24,44 @@ func (uinfo *UserInfo) getUserServiceMethods(username string) (
 	[]string, error) {
 	serviceMethods := uinfo.getUserServiceMethodsMap(username)
 	smStrings := make([]string, 0, len(serviceMethods))
-	for serviceMethod := range serviceMethods {
-		smStrings = append(smStrings,
-			serviceMethod.service+"."+serviceMethod.method)
+	if methods, ok := serviceMethods["*"]; ok {
+		if _, ok := methods["*"]; ok {
+			return []string{"*.*"}, nil
+		}
+		for method := range methods {
+			smStrings = append(smStrings, "*."+method)
+		}
+	}
+	for service, methods := range serviceMethods {
+		if _, ok := methods["*"]; ok {
+			smStrings = append(smStrings, service+".*")
+		} else {
+			for method := range methods {
+				if _, ok := serviceMethods["*"][method]; !ok {
+					smStrings = append(smStrings, service+"."+method)
+				}
+			}
+		}
 	}
 	sort.Strings(smStrings)
 	return smStrings, nil
 }
 
+// getUserServiceMethodsMap returns map[service-name]map[method-name]struct{}
 func (uinfo *UserInfo) getUserServiceMethodsMap(
-	username string) map[serviceMethod]struct{} {
-	serviceMethods := make(map[serviceMethod]struct{})
+	username string) map[string]map[string]struct{} {
+	serviceMethods := make(map[string]map[string]struct{})
 	uinfo.rwMutex.RLock()
 	defer uinfo.rwMutex.RUnlock()
 	for groupname := range uinfo.groupsPerUser[username] {
 		for _, serviceMethod := range uinfo.groupMethods[groupname] {
-			serviceMethods[serviceMethod] = struct{}{}
+			methodsMap := serviceMethods[serviceMethod.service]
+			if methodsMap == nil {
+				methodsMap = make(map[string]struct{})
+				serviceMethods[serviceMethod.service] = methodsMap
+			}
+			serviceMethods[serviceMethod.service][serviceMethod.method] =
+				struct{}{}
 		}
 	}
 	return serviceMethods

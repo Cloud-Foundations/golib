@@ -1,5 +1,23 @@
 [
     {
+        "Name": "team-admin",
+        "ServiceMethods": [
+            "*.*"
+        ],
+        "UserMembers": [
+            "userd"
+        ]
+    },
+    {
+        "Name": "team-reboot",
+        "ServiceMethods": [
+            "*.Reboot"
+        ],
+        "UserMembers": [
+            "usere"
+        ]
+    },
+    {
         "GroupMembers": [
             "team0"
         ],
@@ -10,21 +28,30 @@
             "team1"
         ],
         "Name": "project1",
-        "ServiceMethods": ["BarServer.Reboot"]
+        "ServiceMethods": [
+            "BarServer.Reboot",
+            "MultiServer.FuncOne"
+        ]
     },
     {
         "Name": "team0",
-        "ServiceMethods": ["FooServer.Shutdown"],
+        "ServiceMethods": [
+            "FooServer.Shutdown",
+            "MultiServer.*"
+        ],
         "UserMembers": [
             "userA",
-            "userc"
+            "userc",
+            "userd"
         ]
     },
     {
         "Name": "team1",
         "UserMembers": [
             "userB",
-            "userc"
+            "userc",
+            "userd",
+            "usere"
         ]
     },
     {
