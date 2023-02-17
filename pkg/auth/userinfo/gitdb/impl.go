@@ -19,12 +19,14 @@ var (
 )
 
 type groupType struct {
-	Email        []string `json:",omitempty"`
-	GroupMembers []string `json:",omitempty"`
-	Name         string   `json:",omitempty"`
-	UserMembers  []string `json:",omitempty"`
-	processing   bool
-	users        map[string]struct{} // Includes sub-groups.
+	Email          []string `json:",omitempty"`
+	GroupMembers   []string `json:",omitempty"`
+	Name           string   `json:",omitempty"`
+	ServiceMethods []string `json:",omitempty"`
+	UserMembers    []string `json:",omitempty"`
+	processing     bool
+	serviceMethods []serviceMethod
+	users          map[string]struct{} // Includes sub-groups.
 }
 
 type loadStateType struct {
@@ -118,6 +120,9 @@ func (ls *loadStateType) loadDirectory(dirname string) error {
 			ls.logger.Printf("%s/%s: UserMembers are not sorted\n",
 				dirname, group.Name)
 		}
+		if !sort.StringsAreSorted(group.ServiceMethods) {
+			ls.logger.Printf("%s/%s: ServiceMethods are not sorted\n")
+		}
 		permitted := false
 		for _, re := range permittedGroupsREs {
 			if re.MatchString(group.Name) {
@@ -178,6 +183,16 @@ func (ls *loadStateType) processGroup(group *groupType) {
 		ls.groupsPerUser[user][group.Name] = struct{}{}
 	}
 	group.users = userList
+	for _, smText := range group.ServiceMethods {
+		split := strings.Split(smText, ".")
+		if len(split) != 2 {
+			ls.logger.Printf("%s: malformed ServiceMethod: %s\n",
+				group.Name, smText)
+		} else {
+			group.serviceMethods = append(group.serviceMethods,
+				serviceMethod{service: split[0], method: split[1]})
+		}
+	}
 }
 
 func (ls *loadStateType) walkDirectory(dirname string) error {
@@ -272,14 +287,17 @@ func (uinfo *UserInfo) loadDatabase(dirname string) error {
 	if err := loadState.walkDirectory(dirname); err != nil {
 		return err
 	}
+	groupServiceMethods := make(map[string][]serviceMethod)
 	usersPerGroup := make(map[string]map[string]struct{})
 	for _, group := range loadState.groupsMap {
 		loadState.processGroup(group)
+		groupServiceMethods[group.Name] = group.serviceMethods
 		usersPerGroup[group.Name] = group.users
 	}
 	uinfo.rwMutex.Lock()
 	defer uinfo.rwMutex.Unlock()
 	uinfo.groupsPerUser = loadState.groupsPerUser
+	uinfo.groupMethods = groupServiceMethods
 	uinfo.usersPerGroup = usersPerGroup
 	return nil
 }
